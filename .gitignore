@@ -1,0 +1,20 @@
+# Build artifacts
+Debug/
+Release/
+build/
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# IDE
+.settings/
+.metadata/
+*.launch
+
+# OS
+.DS_Store
+Thumbs.db
