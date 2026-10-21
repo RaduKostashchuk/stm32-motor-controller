@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "app.h"
+#include "stm32g4xx_hal_uart_ex.h"
 #define MAX_CMD_COUNT 16 // MUST be power of two. Actual capacity MAX_CMD_COUNT - 1
 #define TERMINATOR1 '\n'
 #define TERMINATOR2 '\r'
@@ -28,6 +29,11 @@ static uint8_t head = 0;
 static uint8_t tail = 0;
 static uint32_t dropped = 0;
 static State state = Idle;
+
+void reader_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf, uint16_t dmaBufSize)
+{
+	 HAL_UARTEx_ReceiveToIdle_DMA(huart, dmaBuf, dmaBufSize);
+}
 
 // There are two modes:
 // - one character per buffer

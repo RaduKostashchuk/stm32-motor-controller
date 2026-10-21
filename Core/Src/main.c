@@ -20,6 +20,7 @@
 #include "main.h"
 #include "dma.h"
 #include "usart.h"
+#include "tim.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -30,6 +31,7 @@
 #include "app.h"
 #include "reader.h"
 #include "parser.h"
+#include "encoder.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,6 +61,7 @@ static volatile bool need_rearm = false;
 static uint16_t rearm_retries = 0;
 static const uint16_t max_rearm_retries = 100;
 static const char * const uart_rearm_stuck = "UART DMA rearm stuck\n";
+static int32_t position = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -129,10 +132,13 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_LPUART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
-  HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dmaBuf, RX_BUFFER_SIZE);
+  reader_init(&hlpuart1, dmaBuf, RX_BUFFER_SIZE);
+
+  encoder_init();
   /* USER CODE END 2 */
 
   /* Initialize led */
@@ -143,6 +149,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  const uint32_t positionInterval = 100;
+  uint32_t positionStart = 0;
   while (1)
   {
 	if (rxDataReady)
@@ -153,6 +162,12 @@ int main(void)
 
 	if (uart_hdmarx_locked)
 		unlock_uart_hdma();
+
+	uint32_t now = HAL_GetTick();
+	if (now - positionStart >= positionInterval)
+	{
+		position = encoder_get_position();
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
