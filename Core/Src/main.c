@@ -32,6 +32,7 @@
 #include "reader.h"
 #include "parser.h"
 #include "encoder.h"
+#include "motor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -133,16 +134,24 @@ int main(void)
   MX_DMA_Init();
   MX_LPUART1_UART_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
   reader_init(&hlpuart1, dmaBuf, RX_BUFFER_SIZE);
 
   encoder_init();
-  /* USER CODE END 2 */
 
-  /* Initialize led */
-  BSP_LED_Init(LED_GREEN);
+  motor_init();
+
+  motor_set_pwm(40);
+  HAL_Delay(5000);
+  motor_set_pwm(0);
+  HAL_Delay(2000);
+  motor_set_pwm(-40);
+  HAL_Delay(5000);
+  motor_set_pwm(0);
+  /* USER CODE END 2 */
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
   BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
