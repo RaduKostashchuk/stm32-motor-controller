@@ -30,9 +30,9 @@ static uint8_t tail = 0;
 static uint32_t dropped = 0;
 static State state = Idle;
 
-void reader_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf, uint16_t dmaBufSize)
+void reader_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf)
 {
-	 HAL_UARTEx_ReceiveToIdle_DMA(huart, dmaBuf, dmaBufSize);
+	 HAL_UARTEx_ReceiveToIdle_DMA(huart, dmaBuf, RX_BUFFER_SIZE);
 }
 
 // There are two modes:
@@ -120,7 +120,7 @@ static void handleDiscarding(const uint8_t *readBuf, uint16_t rxSize)
         {
         	state = Idle;
         	if (i + 1 < rxSize)
-        		handleIdle(readBuf + i + 1, rxSize - i - 1);
+        		handleIdle(readBuf + i + 1, (uint16_t)(rxSize - i - 1));
 
             return;
         }

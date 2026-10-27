@@ -18,13 +18,13 @@ void motor_set_pwm(int16_t pwm)
 
 	if (pwm > 0)
 	{
-		HAL_GPIO_WritePin(GPIOA, M1_D1_Pin, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOA, M1_D2_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, M1_D1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, M1_D2_Pin, GPIO_PIN_SET);
 	}
 	else if (pwm < 0)
 	{
-		HAL_GPIO_WritePin(GPIOA, M1_D1_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOA, M1_D2_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIOA, M1_D1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIOA, M1_D2_Pin, GPIO_PIN_RESET);
 	}
 	else
 	{

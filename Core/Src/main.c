@@ -25,14 +25,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include "app.h"
 #include "reader.h"
-#include "parser.h"
-#include "encoder.h"
-#include "motor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,7 +38,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define RX_BUFFER_SIZE 64 // Must be several MAX_CMD_LENGTH
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,7 +57,8 @@ static volatile bool need_rearm = false;
 static uint16_t rearm_retries = 0;
 static const uint16_t max_rearm_retries = 100;
 static const char * const uart_rearm_stuck = "UART DMA rearm stuck\n";
-static int32_t position = 0;
+static volatile bool send_telemetry = false;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,11 +67,15 @@ void SystemClock_Config(void);
 static void unlock_uart_hdma();
 static void init_debugmcu();
 static void rearm_uart_dma_rx();
-static void process_command();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	HAL_UART_StateTypeDef state = huart->gState;
+}
+
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
 	if (huart->Instance != LPUART1)
@@ -99,6 +99,15 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	memcpy(readBuf, dmaBuf, Size);
 	rxSize = Size;
 	rxDataReady = true;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM4)
+	{
+		send_telemetry = true;
+		app_do_control_action();
+	}
 }
 
 /* USER CODE END 0 */
@@ -135,22 +144,12 @@ int main(void)
   MX_LPUART1_UART_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
-  reader_init(&hlpuart1, dmaBuf, RX_BUFFER_SIZE);
+  app_init(&hlpuart1, dmaBuf, &htim4);
 
-  encoder_init();
-
-  motor_init();
-
-  motor_set_pwm(40);
-  HAL_Delay(5000);
-  motor_set_pwm(0);
-  HAL_Delay(2000);
-  motor_set_pwm(-40);
-  HAL_Delay(5000);
-  motor_set_pwm(0);
   /* USER CODE END 2 */
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
@@ -158,25 +157,28 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-  const uint32_t positionInterval = 100;
-  uint32_t positionStart = 0;
+  static uint32_t loop_count = 0;
   while (1)
   {
 	if (rxDataReady)
-		process_command();
+	{
+		rxDataReady = false;
+		app_process_command(readBuf, rxSize);
+		need_rearm = true;
+	}
+
+
+	if (send_telemetry)
+	{
+		send_telemetry = false;
+		app_send_telemetry();
+	}
 
 	if (need_rearm)
 		rearm_uart_dma_rx();
 
 	if (uart_hdmarx_locked)
 		unlock_uart_hdma();
-
-	uint32_t now = HAL_GetTick();
-	if (now - positionStart >= positionInterval)
-	{
-		position = encoder_get_position();
-	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -231,25 +233,11 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-static void process_command()
-{
-	rxDataReady = false;
-	reader_read(readBuf, rxSize);
-	RawCmd rawCmd;
-	Command command;
-	while(reader_get_command(&rawCmd))
-	{
-		command = parse(&rawCmd);
-	}
-
-	need_rearm = true;
-}
-
 static void unlock_uart_hdma()
 {
 	uart_hdmarx_locked = false;
-	reader_reset();
 	if (HAL_UART_AbortReceive(&hlpuart1) != HAL_OK)
+	reader_reset();
 	{
 	    __HAL_UNLOCK(&hlpuart1);
 	    if (hlpuart1.hdmarx)
