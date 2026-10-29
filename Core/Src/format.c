@@ -2,10 +2,12 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-bool try_uint32_to_char(char *buf, size_t buf_size, uint32_t value, size_t *out_len)
+bool try_uint32_to_str(char *buf, size_t buf_size, uint32_t value, size_t *out_len)
 {
     if (buf == NULL || buf_size == 0)
         return false;
+
+    buf[0] = '\0';
 
     size_t digits = 1;
     for (uint32_t v = value; v >= 10; v /= 10)
@@ -27,10 +29,12 @@ bool try_uint32_to_char(char *buf, size_t buf_size, uint32_t value, size_t *out_
     return true;
 }
 
-bool try_int32_to_char(char *buf, size_t buf_size, int32_t value, size_t *out_len)
+bool try_int32_to_str(char *buf, size_t buf_size, int32_t value, size_t *out_len)
 {
 	if (buf == NULL || buf_size == 0)
 		return false;
+
+	buf[0] = '\0';
 
     uint32_t absNum;
     size_t len = 0;
@@ -49,7 +53,7 @@ bool try_int32_to_char(char *buf, size_t buf_size, int32_t value, size_t *out_le
     }
 
     size_t copy_len = 0;
-    if (!try_uint32_to_dec(&buf[len], buf_size - len, absNum, &copy_len))
+    if (!try_uint32_to_str(&buf[len], buf_size - len, absNum, &copy_len))
     {
     	buf[0] = '\0';
     	return false;
@@ -61,12 +65,17 @@ bool try_int32_to_char(char *buf, size_t buf_size, int32_t value, size_t *out_le
     return true;
 }
 
-bool try_float_to_char(char *buf, size_t buf_size, float value, size_t *out_len)
+bool try_float_to_str(char *buf, size_t buf_size, float value, size_t *out_len)
 {
-	if (buf == NULL || buf_size < 15)  // sign + 10 (int part) + . + 2 (frac part) + '\0'
+	if (buf == NULL || buf_size == 0)
 		return false;
 
-    if (!(value > -4294967296.0f && value < 4294967296.0f)) // catch NaN and uint32 range overflow
+	buf[0] = '\0';
+
+	if (buf_size < 15)  // sign + 10 (int part) + . + 2 (frac part) + '\0'
+		return false;
+
+    if (!(value > -4294967296.0f && value < 4294967296.0f))
         return false;
 
     size_t len = 0;
@@ -89,7 +98,7 @@ bool try_float_to_char(char *buf, size_t buf_size, float value, size_t *out_len)
     }
 
     size_t copy_len = 0;
-    if (!try_uint32_to_char(&buf[len], buf_size - len, int_part, &copy_len))
+    if (!try_uint32_to_str(&buf[len], buf_size - len, int_part, &copy_len))
     {
     	buf[0] = '\0';
     	return false;
@@ -112,6 +121,8 @@ bool try_copy_str(const char *src, char *dst, size_t dst_size, size_t *out_len)
 {
     if (dst == NULL || dst_size == 0)
         return false;
+
+    dst[0] = '\0';
 
     if (src == NULL)
         return false;
