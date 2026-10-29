@@ -119,13 +119,10 @@ bool try_float_to_str(char *buf, size_t buf_size, float value, size_t *out_len)
 
 bool try_copy_str(const char *src, char *dst, size_t dst_size, size_t *out_len)
 {
-    if (dst == NULL || dst_size == 0)
+    if (dst == NULL || dst_size == 0 || src == NULL)
         return false;
 
     dst[0] = '\0';
-
-    if (src == NULL)
-        return false;
 
     size_t i = 0;
     while (i + 1 < dst_size && src[i] != '\0') {
