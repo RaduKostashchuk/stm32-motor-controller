@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "app.h"
-#include "stm32g4xx_hal_uart_ex.h"
 #define MAX_CMD_COUNT 16 // MUST be power of two. Actual capacity MAX_CMD_COUNT - 1
 #define TERMINATOR1 '\n'
 #define TERMINATOR2 '\r'

@@ -166,13 +166,17 @@ static bool try_get_int32(const char *arg, int32_t *number)
 	char *end;
 	errno = 0;
 
-	*number = (int32_t)strtol(arg, &end, 10);
-
-	if (errno == ERANGE) // overflow
-	  return false;
+	long value = strtol(arg, &end, 10);
 
 	if (end == arg || *end != '\0') // no numbers
 		return false;
 
+	if (errno == ERANGE) // overflow
+		return false;
+
+	if (value < INT32_MIN || value > INT32_MAX)
+		return false;
+
+	*number = (int32_t)value;
 	return true;
 }
