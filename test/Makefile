@@ -9,7 +9,7 @@ LDFLAGS =
 CFLAGS += -I$(UNITY_DIR)/src
 
 # Список тестовых файлов
-TEST_SRCS = test_format_try_copy_str.c # test_parser.c test_reader.c test_estimator.c
+TEST_SRCS = test_format.c # test_parser.c test_reader.c test_estimator.c
 
 # Исходники тестируемых модулей (только не зависящие от HAL)
 APP_SRCS = ../Core/Src/format.c # ../Core/Src/parser.c
