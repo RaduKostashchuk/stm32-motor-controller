@@ -2,12 +2,31 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+bool try_copy_str(const char *src, char *dst, size_t dst_size, size_t *out_len)
+{
+    if (dst == NULL || dst_size == 0 || src == NULL)
+        return false;
+
+    size_t i = 0;
+    while (i + 1 < dst_size && src[i] != '\0') {
+        dst[i] = src[i];
+        i++;
+    }
+    dst[i] = '\0';
+
+    if (src[i] != '\0')
+        return false;
+
+    if (out_len != NULL)
+        *out_len = i;
+
+    return true;
+}
+
 bool try_uint32_to_str(char *buf, size_t buf_size, uint32_t value, size_t *out_len)
 {
     if (buf == NULL || buf_size == 0)
         return false;
-
-    buf[0] = '\0';
 
     size_t digits = 1;
     for (uint32_t v = value; v >= 10; v /= 10)
@@ -34,30 +53,24 @@ bool try_int32_to_str(char *buf, size_t buf_size, int32_t value, size_t *out_len
 	if (buf == NULL || buf_size == 0)
 		return false;
 
-	buf[0] = '\0';
-
-    uint32_t absNum;
+    uint32_t abs_num = 0;
     size_t len = 0;
-
     if (value < 0)
     {
-    	if (buf_size < 3) // sign, one digit, '\0'
-    		return false;
-
-        absNum = (uint32_t)(-(int64_t)value);  // safe for INT32_MIN
-        buf[len++] = (char)'-';
+    	abs_num = (uint32_t)(-(int64_t)value);  // safe for INT32_MIN
+        len++;
     }
     else
     {
-        absNum = (uint32_t)value;
+    	abs_num = (uint32_t)value;
     }
 
     size_t copy_len = 0;
-    if (!try_uint32_to_str(&buf[len], buf_size - len, absNum, &copy_len))
-    {
-    	buf[0] = '\0';
+    if (!try_uint32_to_str(&buf[len], buf_size - len, abs_num, &copy_len))
     	return false;
-    }
+
+    if (value < 0)
+    	buf[0] = '-';
 
     if (out_len != NULL)
     	*out_len = len + copy_len;
@@ -67,12 +80,7 @@ bool try_int32_to_str(char *buf, size_t buf_size, int32_t value, size_t *out_len
 
 bool try_float_to_str(char *buf, size_t buf_size, float value, size_t *out_len)
 {
-	if (buf == NULL || buf_size == 0)
-		return false;
-
-	buf[0] = '\0';
-
-	if (buf_size < 15)  // sign + 10 (int part) + . + 2 (frac part) + '\0'
+	if (buf == NULL || buf_size < 6) // "N.NN\0" (5) positive, "-N.NN\0" (6) negative
 		return false;
 
     if (!(value > -4294967296.0f && value < 4294967296.0f))
@@ -82,7 +90,7 @@ bool try_float_to_str(char *buf, size_t buf_size, float value, size_t *out_len)
     if (value < 0.0f)
     {
     	value = -value;
-        buf[len++] = '-';
+    	len++;
     }
 
     uint32_t int_part = (uint32_t)value;
@@ -90,19 +98,18 @@ bool try_float_to_str(char *buf, size_t buf_size, float value, size_t *out_len)
     uint32_t frac_part = (uint32_t)((value - (float)int_part) * 100.0f + 0.5f); // round up to two signs
     if (frac_part >= 100)
     {
-        if (int_part == UINT32_MAX)
-            return false;
-
         frac_part -= 100;
         int_part++;
     }
 
     size_t copy_len = 0;
-    if (!try_uint32_to_str(&buf[len], buf_size - len, int_part, &copy_len))
+    if (!try_uint32_to_str(&buf[len], buf_size - len - 3, int_part, &copy_len)) // 3 = '.xy'
     {
-    	buf[0] = '\0';
     	return false;
     }
+
+    if (len == 1)
+    	buf[0] = '-';
 
     len += copy_len;
     buf[len++] = '.'; //overwrite '\0'
@@ -113,29 +120,6 @@ bool try_float_to_str(char *buf, size_t buf_size, float value, size_t *out_len)
 
     if (out_len != NULL)
     	*out_len = len;
-
-    return true;
-}
-
-bool try_copy_str(const char *src, char *dst, size_t dst_size, size_t *out_len)
-{
-    if (dst == NULL || dst_size == 0 || src == NULL)
-        return false;
-
-    dst[0] = '\0';
-
-    size_t i = 0;
-    while (i + 1 < dst_size && src[i] != '\0') {
-        dst[i] = src[i];
-        i++;
-    }
-    dst[i] = '\0';
-
-    if (src[i] != '\0')
-        return false;
-
-    if (out_len != NULL)
-        *out_len = i;
 
     return true;
 }
