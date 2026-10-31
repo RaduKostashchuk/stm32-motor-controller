@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "app.h"
+#include <errno.h>
 #define MAX_CMD_PARTS 3
 
 typedef struct
 {
-  uint8_t content[MAX_CMD_LENGTH];
+  char content[MAX_CMD_LENGTH];
   size_t length;
 } Token;
 
@@ -14,7 +15,7 @@ static void tokenize(Token * tokens, size_t * tokenCount, const RawCmd * rawCmd)
 static void parseModeCmd(Token * tokens, size_t tokenCount, Command * command);
 static void parseMotorCmd(Token * tokens, size_t tokenCount, Command * command);
 static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command);
-static bool tryGetLong(uint8_t *arg, long * number);
+static bool try_get_int32(const char *arg, int32_t *number);
 
 const char *motorCmd = "MOTOR";
 const char *stopCmd = "STOP";
@@ -120,16 +121,16 @@ static void parseMotorCmd(Token * tokens, size_t tokenCount, Command * command)
   if (tokenCount != 3 || (*tokens).length != motorCmdLen || (*(tokens + 2)).length == 0)
 	return;
 
-  uint8_t * secondArg = (*(tokens + 1)).content;
-  long motorNumber = 0;
-  if (tryGetLong(secondArg, &motorNumber))
+  char * secondArg = (*(tokens + 1)).content;
+  int32_t motorNumber = 0;
+  if (try_get_int32(secondArg, &motorNumber))
 	command->motorNumber = motorNumber;
   else
 	return;
 
-  uint8_t * thirdArg = (*(tokens + 2)).content;
-  long target = 0;
-  if (tryGetLong(thirdArg, &target))
+  char * thirdArg = (*(tokens + 2)).content;
+  int32_t target = 0;
+  if (try_get_int32(thirdArg, &target))
   {
 	command->type = Motor;
 	command->target = target;
@@ -144,12 +145,12 @@ static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command)
 	return;
 
   Token * secondArg = tokens + 1;
-  long motorNumber = 0;
+  int32_t motorNumber = 0;
   if ((*secondArg).length == 0)
   {
 	command->type = Stop;
   }
-  else if (tryGetLong((*secondArg).content, &motorNumber))
+  else if (try_get_int32((*secondArg).content, &motorNumber))
   {
 	command->type = Stop;
 	command->motorNumber = motorNumber;
@@ -157,10 +158,21 @@ static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command)
   }
 }
 
-static bool tryGetLong(uint8_t *arg, long * number)
+static bool try_get_int32(const char *arg, int32_t *number)
 {
-  char *end = NULL;
-  const char * argC = (const char *)arg;
-  *number = strtol(argC, &end, 10);
-  return end == argC || *end != '\0' ? false : true;
+	if (arg == NULL || number == NULL)
+		return false;
+
+	char *end;
+	errno = 0;
+
+	*number = (int32_t)strtol(arg, &end, 10);
+
+	if (errno == ERANGE) // overflow
+	  return false;
+
+	if (end == arg || *end != '\0') // no numbers
+		return false;
+
+	return true;
 }

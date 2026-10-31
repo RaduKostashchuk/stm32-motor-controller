@@ -255,14 +255,8 @@ void app_process_command(const uint8_t *readBuf, uint16_t rxSize)
 	}
 }
 
-void app_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf, TIM_HandleTypeDef *htim)
+void app_init(void)
 {
-	telemetry_uart = huart;
-
-	HAL_TIM_Base_Start_IT(htim);
-
-	reader_init(huart, dmaBuf);
-
 	encoder_init();
 
 	motor_init();
@@ -272,15 +266,15 @@ void app_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf, TIM_HandleTypeDef *hti
 	controller_init();
 }
 
-void app_do_control_action()
+void app_do_control_action(void)
 {
 	estimator_run(encoder_get_position());
 	controller_set_current_rpm(estimator_get_rpm());
 	motor_set_pwm(controller_get_contol_value());
 }
 
-void app_send_telemetry()
+char * app_get_telemetry(size_t * buf_len)
 {
-	telemetry_send(telemetry_uart, &state);
+	return telemetry_get_data(&state, buf_len);
 }
 

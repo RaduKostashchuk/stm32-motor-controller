@@ -8,6 +8,8 @@
 #define MAX_D 30
 #define DELTA_TIME_SEC 0.05f // TIM4 configured for 20Hz
 
+typedef uint32_t (*get_millis_from_start)(void);
+
 static const float kp = 1;
 static const float ki = 1;
 static const float kd = 0;
@@ -24,7 +26,6 @@ static float previousRpm;
 static float currentRpm;
 static float filteredRpm;
 static float uff;
-static unsigned long lastCalcDRun;
 static float iSum;
 static int16_t control_value;
 
@@ -80,7 +81,6 @@ void controller_init()
   currentRpm = 0;
   filteredRpm = 0;
   uff = 0;
-  lastCalcDRun = HAL_GetTick();
   iSum = 0;
   control_value = 0;
 }
@@ -143,7 +143,6 @@ void controller_reset()
   filteredDerivative = 0;
   previousRpm = 0;
   uff = 0;
-  lastCalcDRun = 0;
   iSum = 0;
   control_value = 0;
 }

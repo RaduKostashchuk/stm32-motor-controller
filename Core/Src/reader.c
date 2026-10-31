@@ -30,11 +30,6 @@ static uint8_t tail = 0;
 static uint32_t dropped = 0;
 static State state = Idle;
 
-void reader_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf)
-{
-	 HAL_UARTEx_ReceiveToIdle_DMA(huart, dmaBuf, RX_BUFFER_SIZE);
-}
-
 // There are two modes:
 // - one character per buffer
 // - several commands per buffer

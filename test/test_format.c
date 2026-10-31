@@ -3,10 +3,7 @@
 #include <stdint.h>
 #define DST_SIZE 16
 
-void setUp(void) {}
-void tearDown(void) {}
-
-// ======== try_copy_str =========
+// try_copy_str
 void test_normal(void) {
 	size_t src_len = 4;
 	size_t out_len = 0;
@@ -92,7 +89,7 @@ void test_empty_src(void) {
     TEST_ASSERT_EQUAL_UINT32(0, (uint32_t)out_len);
 }
 
-// ======== try_uint32_to_str =========
+// try_uint32_to_str
 
 void test_u32_zero(void)
 {
@@ -164,7 +161,7 @@ void test_u32_max_dst_exact_fit(void) {
     TEST_ASSERT_EQUAL_STRING("4294967295", dst);
 }
 
-// ======== try_int32_to_str =========
+// try_int32_to_str
 void test_i32_positive(void)
 {
 	char dst[DST_SIZE];
@@ -250,7 +247,7 @@ void test_i32_min_dst_too_small(void) {
     TEST_ASSERT_FALSE(try_int32_to_str(dst, 11, INT32_MIN, NULL));
 }
 
-// ======== try_float_to_str =========
+// try_float_to_str
 void test_f32_zero(void)
 {
 	char dst[DST_SIZE];
@@ -373,9 +370,8 @@ void test_f32_negative_dst_one_short(void) {
     TEST_ASSERT_EQUAL_STRING("prev", dst);
 }
 
-int main(void) {
-    UNITY_BEGIN();
-
+void test_format(void)
+{
     // try_copy_str
     RUN_TEST(test_normal);
     RUN_TEST(test_dst_null);
@@ -429,6 +425,4 @@ int main(void) {
     RUN_TEST(test_f32_dst_one_short);
     RUN_TEST(test_f32_negative_dst_exact_fit);
     RUN_TEST(test_f32_negative_dst_one_short);
-
-    return UNITY_END();
 }

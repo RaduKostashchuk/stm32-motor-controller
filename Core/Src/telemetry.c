@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "app.h"
 #include "format.h"
+#include "app.h"
 #define TX_BUF_LEN 160
 
 static const char telemetry_prefix[] = "T:";
@@ -80,12 +80,9 @@ static size_t telemetry_build(char *txBuf, DriveState *state)
 	return txBufPos + copyLen;
 }
 
-void telemetry_send(UART_HandleTypeDef *huart, DriveState *state)
+char *telemetry_get_data(DriveState *state, size_t *buf_len)
 {
-    if (huart->gState == HAL_UART_STATE_READY)
-    {
-    	static char txBuf[TX_BUF_LEN];
-    	size_t bufLen = telemetry_build(txBuf, state);
-        HAL_UART_Transmit_DMA(huart, (uint8_t*)txBuf, (uint16_t)bufLen);
-    }
+	static char txBuf[TX_BUF_LEN];
+   	*buf_len = telemetry_build(txBuf, state);
+    return txBuf;
 }

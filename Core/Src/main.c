@@ -71,11 +71,6 @@ static void rearm_uart_dma_rx();
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-	HAL_UART_StateTypeDef state = huart->gState;
-}
-
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
 	if (huart->Instance != LPUART1)
@@ -148,7 +143,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
-  app_init(&hlpuart1, dmaBuf, &htim4);
+  HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dmaBuf, RX_BUFFER_SIZE);
+
+  HAL_TIM_Base_Start_IT(&htim4);
+
+  app_init();
 
   /* USER CODE END 2 */
 
@@ -157,7 +156,6 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  static uint32_t loop_count = 0;
   while (1)
   {
 	if (rxDataReady)
@@ -171,7 +169,12 @@ int main(void)
 	if (send_telemetry)
 	{
 		send_telemetry = false;
-		app_send_telemetry();
+		if (hlpuart1.gState == HAL_UART_STATE_READY)
+		{
+			size_t telemetry_len = 0;
+			char *telemetry_string = app_get_telemetry(&telemetry_len);
+			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)telemetry_string, (uint16_t)telemetry_len);
+		}
 	}
 
 	if (need_rearm)

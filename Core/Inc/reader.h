@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include "app.h"
 
-void reader_init(UART_HandleTypeDef *huart, uint8_t *dmaBuf);
 void reader_read(const uint8_t *readBuf, uint16_t rxSize);
 bool reader_get_command(RawCmd * cmd);
 void reader_reset();

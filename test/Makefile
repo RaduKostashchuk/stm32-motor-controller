@@ -1,6 +1,8 @@
 # test/Makefile
 CC = gcc
+
 CFLAGS = -I../Core/Inc -IUnity -Wall -Wextra -g
+
 UNITY_SRC = Unity/unity.c
 UNITY_OBJ = Unity/unity.o
 UNITY_HDR = Unity/unity.h Unity/unity_internals.h
@@ -9,10 +11,10 @@ LDFLAGS =
 CFLAGS += -I$(UNITY_DIR)/src
 
 # Список тестовых файлов
-TEST_SRCS = test_format.c # test_parser.c test_reader.c test_estimator.c
+TEST_SRCS = main.c test_parser.c test_format.c # test_reader.c test_estimator.c
 
 # Исходники тестируемых модулей (только не зависящие от HAL)
-APP_SRCS = ../Core/Src/format.c # ../Core/Src/parser.c
+APP_SRCS = ../Core/Src/format.c ../Core/Src/parser.c
 
 # Исходники Unity
 UNITY_SRC = Unity/unity.c
