@@ -25,7 +25,7 @@ const char *statusCmd = "STATUS";
 
 Command parse(const RawCmd * rawCmd)
 {
-  Token tokens[MAX_CMD_PARTS] = {};
+  Token tokens[MAX_CMD_PARTS] = {0};
   size_t tokenCount = 0;
   tokenize(tokens, &tokenCount, rawCmd);
 
@@ -36,9 +36,6 @@ Command parse(const RawCmd * rawCmd)
 		.motorNumber = 0,
 		.target = 0
   };
-
-  if (tokenCount > MAX_CMD_PARTS)
-	  return command;
 
   const uint8_t statusCmdLen = 6;
   if (strcmp((const char *)tokens[0].content, motorCmd) == 0)
@@ -98,7 +95,7 @@ static void parseModeCmd(Token * tokens, size_t tokenCount, Command * command)
 {
   const uint8_t modeCmdLen = 4;
   command->type = InvalidMode;
-  if ((*tokens).length != modeCmdLen || tokenCount != 2)
+  if (tokenCount != 2 || (*tokens).length != modeCmdLen)
 	return;
 
   const uint8_t autoCmdLen = 4;
@@ -120,7 +117,7 @@ static void parseMotorCmd(Token * tokens, size_t tokenCount, Command * command)
 {
   const uint8_t motorCmdLen = 5;
   command->type = InvalidMotor;
-  if ((*tokens).length != motorCmdLen || (*(tokens + 2)).length == 0 || tokenCount != 3)
+  if (tokenCount != 3 || (*tokens).length != motorCmdLen || (*(tokens + 2)).length == 0)
 	return;
 
   uint8_t * secondArg = (*(tokens + 1)).content;
@@ -143,7 +140,7 @@ static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command)
 {
   const uint8_t stopCmdLen = 4;
   command->type = InvalidStop;
-  if ((*tokens).length != stopCmdLen || tokenCount > 2)
+  if (tokenCount > 2 || (*tokens).length != stopCmdLen)
 	return;
 
   Token * secondArg = tokens + 1;
