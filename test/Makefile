@@ -2,7 +2,7 @@
 CC = gcc
 
 # 🔹 Определите корень Unity (папка, куда вы скопировали репозиторий Unity)
-UNITY_DIR = ..\..\Unity
+UNITY_DIR = Unity
 
 # 🔹 Добавьте путь к заголовкам Fixture и базовым заголовкам Unity
 CFLAGS = -I../Core/Inc \
@@ -23,10 +23,10 @@ UNITY_HDR = $(UNITY_DIR)/src/unity.h \
             $(UNITY_DIR)/extras/memory/src/unity_memory.h
 
 # Список тестовых файлов
-TEST_SRCS = main_test.c test_reader.c test_parser.c test_format.c test_estimator.c
+TEST_SRCS = main_test.c test_reader.c test_parser.c test_format.c test_estimator.c test_controller.c
 
 # Исходники тестируемых модулей (только не зависящие от HAL)
-APP_SRCS = ../Core/Src/reader.c ../Core/Src/parser.c ../Core/Src/format.c ../Core/Src/estimator.c
+APP_SRCS = ../Core/Src/reader.c ../Core/Src/parser.c ../Core/Src/format.c ../Core/Src/estimator.c ../Core/Src/controller.c
 
 # MOCK_SRCS = mocks/hal_mock.c
 

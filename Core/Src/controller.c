@@ -5,7 +5,7 @@
 #define MIN_CV -255
 #define MAX_CV 255
 #define I_D_DEADBAND 1.5f
-#define MAX_D 30
+#define MAX_RAW_DERIVATIVE 30 //d clamp
 #define DELTA_TIME_SEC 0.05f // TIM4 configured for 20Hz
 
 typedef uint32_t (*get_millis_from_start)(void);
@@ -21,10 +21,8 @@ static float p;
 static float i;
 static float d;
 static float rawDerivative;
-static float filteredDerivative;
 static float previousRpm;
 static float currentRpm;
-static float filteredRpm;
 static float uff;
 static float iSum;
 static int16_t control_value;
@@ -47,22 +45,26 @@ void calcI()
 void calcD()
 {
   if (kd == 0)
+  {
+	d = 0;
+	previousRpm = currentRpm;
 	return;
+  }
 
   if (fabsf(error) <= I_D_DEADBAND)
   {
 	d = 0;
+	previousRpm = currentRpm;
 	return;
   }
 
   rawDerivative = (previousRpm - currentRpm) / DELTA_TIME_SEC;
-  // filteredDerivative += alpha * (rawDerivative - filteredDerivative); // low pass filter
 
   // d clamping
-  if (rawDerivative > MAX_D)
-	  rawDerivative = MAX_D;
-  else if (rawDerivative < -MAX_D)
-	  rawDerivative = -MAX_D;
+  if (rawDerivative > MAX_RAW_DERIVATIVE)
+	  rawDerivative = MAX_RAW_DERIVATIVE;
+  else if (rawDerivative < -MAX_RAW_DERIVATIVE)
+	  rawDerivative = -MAX_RAW_DERIVATIVE;
 
   d = kd * rawDerivative;
   previousRpm = currentRpm;
@@ -76,10 +78,8 @@ void controller_init()
   i = 0;
   d = 0;
   rawDerivative = 0;
-  filteredDerivative = 0;
   previousRpm = 0;
   currentRpm = 0;
-  filteredRpm = 0;
   uff = 0;
   iSum = 0;
   control_value = 0;
@@ -95,25 +95,29 @@ void controller_set_current_rpm(float current)
   currentRpm = current;
 }
 
-void setFilteredRpm(float filtered)
+void controller_fill_drive_state(DriveState *state)
 {
-  filteredRpm = filtered;
+	if (state == NULL)
+		return;
+
+	state->cont_pwm = control_value;
+	state->cont_error = error;
+	state->cont_p = p;
+	state->cont_i = i;
+	state->cont_d = d;
+	state->cont_uff = uff;
 }
 
-void controller_fill_drive_state(DriveState * state)
-{
-  state->cont_pwm = control_value;
-  state->cont_error = error;
-  state->cont_p = p;
-  state->cont_i = i;
-  state->cont_d = d;
-  state->cont_uff = uff;
-}
-
-int16_t controller_get_contol_value()
+int16_t controller_get_control_value()
 {
   if (targetRpm == 0)
-	return 0;
+  {
+      iSum = 0;
+      i = 0;
+      control_value = 0;
+      previousRpm = currentRpm;
+      return 0;
+  }
 
   error = targetRpm - currentRpm;
   p = error * kp;
@@ -122,13 +126,20 @@ int16_t controller_get_contol_value()
   calcD();
   calcI();
 
-  control_value = (int16_t)(uff + p + i + d);
+  float output = uff + p + i + d;
   // control value clamping
-  if (control_value > MAX_CV)
-	  control_value = MAX_CV;
-  else if (control_value < MIN_CV)
-	  control_value = MIN_CV;
+  if (output > MAX_CV)
+	  output = MAX_CV;
+  else if (output < MIN_CV)
+	  output = MIN_CV;
 
+  if (!isfinite(output)) // Nan protection
+  {
+      control_value = 0;
+      return 0;
+  }
+
+  control_value = (int16_t)output;
   return control_value;
 }
 
@@ -140,9 +151,9 @@ void controller_reset()
   i = 0;
   d = 0;
   rawDerivative = 0;
-  filteredDerivative = 0;
   previousRpm = 0;
   uff = 0;
   iSum = 0;
   control_value = 0;
+  currentRpm = 0;
 }
