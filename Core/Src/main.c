@@ -48,8 +48,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static uint8_t dmaBuf[RX_BUFFER_SIZE];
-static uint8_t readBuf[RX_BUFFER_SIZE];
+static uint8_t dma_buf[RX_BUFFER_SIZE];
+static char read_buf[RX_BUFFER_SIZE];
 static volatile uint16_t rxSize = 0;
 static volatile bool rxDataReady = false;
 static volatile bool uart_hdmarx_locked = false;
@@ -91,7 +91,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	if (HAL_UARTEx_GetRxEventType(huart) == HAL_UART_RXEVENT_HT)
 		return;
 
-	memcpy(readBuf, dmaBuf, Size);
+	memcpy(read_buf, dma_buf, Size);
 	rxSize = Size;
 	rxDataReady = true;
 }
@@ -143,7 +143,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
-  HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dmaBuf, RX_BUFFER_SIZE);
+  HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUFFER_SIZE);
 
   HAL_TIM_Base_Start_IT(&htim4);
 
@@ -161,7 +161,7 @@ int main(void)
 	if (rxDataReady)
 	{
 		rxDataReady = false;
-		app_process_command(readBuf, rxSize);
+		app_process_command(read_buf, rxSize);
 		need_rearm = true;
 	}
 

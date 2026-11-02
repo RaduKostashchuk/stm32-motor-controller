@@ -13,6 +13,8 @@
 #define MAX_RPM 95
 #define MIN_RPM 0
 
+static const char * const reader_cmd_too_long = "READER ERROR: COMMAND TOO LONG\n";
+static const char * const reader_ring_overflow = "READER ERROR: COMMAND RING OVERFLOW\n";
 static const char *success = "OK";
 static const char *unknown = "ERROR UNKNOWN COMMAND";
 static const char *none = "None";
@@ -22,107 +24,106 @@ static const char *invalid_mode = "ERROR USAGE MODE <AUTO|MANUAL>";
 static const char *invalid_status = "ERROR USAGE STATUS";
 static ModeType app_mode = Auto;
 static DriveState state;
-static UART_HandleTypeDef * telemetry_uart;
 
-void debug_print(const uint8_t *msg, size_t len)
-{
-	for (uint16_t i = 0; i < len; i++)
-		ITM_SendChar(msg[i]);
-}
-
-void debug_print_str(const char *msg)
-{
-	while(*msg)
-		ITM_SendChar(*msg++);
-}
-
-void debug_print_int16(int16_t num)
-{
-	bool isNegative = num < 0;
-	uint16_t absNum;
-
-	if (isNegative)
-	{
-		absNum = (uint16_t)(-(int32_t)num);
-		ITM_SendChar('-');
-	}
-	else
-	{
-		absNum = (uint16_t)num;
-	}
-
-	uint16_t divider = 10000;
-	bool allZeroes = true;
-	while(divider > 0)
-	{
-		if (absNum >= divider)
-		{
-			uint8_t cipher = (uint8_t)(absNum / divider);
-			allZeroes = false;
-			ITM_SendChar((char)(cipher + '0'));
-			absNum %= divider;
-		}
-		else if (!allZeroes)
-		{
-			ITM_SendChar('0');
-		}
-		divider /= 10;
-	}
-
-	if (allZeroes)
-		ITM_SendChar('0');
-}
-
-void debug_print_int32(int32_t num)
-{
-    bool isNegative = num < 0;
-    uint32_t absNum;
-
-    if (isNegative)
-    {
-        absNum = (uint32_t)(-(int64_t)num);  // безопасно для INT32_MIN
-        ITM_SendChar('-');
-    }
-    else
-    {
-        absNum = (uint32_t)num;
-    }
-
-    uint32_t divider = 1000000000;  // 10^9, тип uint32_t
-    bool allZeroes = true;
-
-    while (divider > 0)
-    {
-        if (absNum >= divider)
-        {
-            uint8_t cipher = (uint8_t)(absNum / divider);
-            allZeroes = false;
-            ITM_SendChar((char)(cipher + '0'));
-            absNum %= divider;
-        }
-        else if (!allZeroes)
-        {
-            ITM_SendChar('0');
-        }
-        divider /= 10;
-    }
-
-    if (allZeroes)
-        ITM_SendChar('0');
-}
-
-void debug_print_float(float num)
-{
-	const size_t bufSize = 20;
-	char buf[bufSize];
-	float_to_char_dec(buf, bufSize, num);
-	debug_print_str(buf);
-}
+//void debug_print(const uint8_t *msg, size_t len)
+//{
+//	for (uint16_t i = 0; i < len; i++)
+//		ITM_SendChar(msg[i]);
+//}
+//
+//void debug_print_str(const char *msg)
+//{
+//	while(*msg)
+//		ITM_SendChar(*msg++);
+//}
+//
+//void debug_print_int16(int16_t num)
+//{
+//	bool isNegative = num < 0;
+//	uint16_t absNum;
+//
+//	if (isNegative)
+//	{
+//		absNum = (uint16_t)(-(int32_t)num);
+//		ITM_SendChar('-');
+//	}
+//	else
+//	{
+//		absNum = (uint16_t)num;
+//	}
+//
+//	uint16_t divider = 10000;
+//	bool allZeroes = true;
+//	while(divider > 0)
+//	{
+//		if (absNum >= divider)
+//		{
+//			uint8_t cipher = (uint8_t)(absNum / divider);
+//			allZeroes = false;
+//			ITM_SendChar((char)(cipher + '0'));
+//			absNum %= divider;
+//		}
+//		else if (!allZeroes)
+//		{
+//			ITM_SendChar('0');
+//		}
+//		divider /= 10;
+//	}
+//
+//	if (allZeroes)
+//		ITM_SendChar('0');
+//}
+//
+//void debug_print_int32(int32_t num)
+//{
+//    bool isNegative = num < 0;
+//    uint32_t absNum;
+//
+//    if (isNegative)
+//    {
+//        absNum = (uint32_t)(-(int64_t)num);  // безопасно для INT32_MIN
+//        ITM_SendChar('-');
+//    }
+//    else
+//    {
+//        absNum = (uint32_t)num;
+//    }
+//
+//    uint32_t divider = 1000000000;  // 10^9, тип uint32_t
+//    bool allZeroes = true;
+//
+//    while (divider > 0)
+//    {
+//        if (absNum >= divider)
+//        {
+//            uint8_t cipher = (uint8_t)(absNum / divider);
+//            allZeroes = false;
+//            ITM_SendChar((char)(cipher + '0'));
+//            absNum %= divider;
+//        }
+//        else if (!allZeroes)
+//        {
+//            ITM_SendChar('0');
+//        }
+//        divider /= 10;
+//    }
+//
+//    if (allZeroes)
+//        ITM_SendChar('0');
+//}
+//
+//void debug_print_float(float num)
+//{
+//	const size_t bufSize = 20;
+//	char buf[bufSize];
+//	float_to_char_dec(buf, bufSize, num);
+//	debug_print_str(buf);
+//}
 
 void execute_mode_cmd(Command *command)
 {
   app_mode = command->modeType;
-  debug_print_str(success);
+//  debug_print_str(success);
 }
 
 void execute_motor_cmd(Command *command, DriveState *state)
@@ -133,7 +134,7 @@ void execute_motor_cmd(Command *command, DriveState *state)
 
   if (invalidParams)
   {
-	debug_print_str(invalid_motor);
+//	debug_print_str(invalid_motor);
     return;
   }
 
@@ -148,14 +149,14 @@ void execute_motor_cmd(Command *command, DriveState *state)
     	motor_set_pwm(state->cont_pwm);
     }
   }
-  debug_print_str(success);
+//  debug_print_str(success);
 }
 
 void execute_stop_cmd(Command *command, DriveState *state)
 {
   if (command->hasMotorNumber && command->motorNumber != 1)
   {
-	debug_print_str(invalid_stop);
+//	debug_print_str(invalid_stop);
     return;
   }
 
@@ -163,38 +164,38 @@ void execute_stop_cmd(Command *command, DriveState *state)
   motor_set_pwm(0);
   state->app_desiredRpm = 0;
 
-  debug_print_str(success);
+//  debug_print_str(success);
 }
 
 void app_send_full_status(DriveState * state)
 {
-	debug_print_str("Application mode:  ");
-	debug_print_str(app_mode == Auto ? "Auto" : "Manual");
-
-	debug_print_str(";  Last motor cmd:  ");
-  switch (app_mode)
-  {
-    case Auto:
-      debug_print_str("Target Rpm: ");
-      debug_print_float(state->app_desiredRpm);
-      break;
-
-    case Manual:
-      debug_print_str("Pwm: ");
-      debug_print_int16(state->cont_pwm);
-  }
-
-  debug_print_str("\n");
-
-  debug_print_str("Encoder:  ");
-  debug_print_str("Position: ");
-  debug_print_int32(state->est_position);
-
-  debug_print_str(" ||  Estimator:  ");
-  debug_print_str(";  RPM: ");
-  debug_print_float(state->est_currentRpm);
-
-  debug_print_str("\n");
+//	debug_print_str("Application mode:  ");
+//	debug_print_str(app_mode == Auto ? "Auto" : "Manual");
+//
+//	debug_print_str(";  Last motor cmd:  ");
+//  switch (app_mode)
+//  {
+//    case Auto:
+//      debug_print_str("Target Rpm: ");
+//      debug_print_float(state->app_desiredRpm);
+//      break;
+//
+//    case Manual:
+//      debug_print_str("Pwm: ");
+//      debug_print_int16(state->cont_pwm);
+//  }
+//
+//  debug_print_str("\n");
+//
+//  debug_print_str("Encoder:  ");
+//  debug_print_str("Position: ");
+//  debug_print_int32(state->est_position);
+//
+//  debug_print_str(" ||  Estimator:  ");
+//  debug_print_str(";  RPM: ");
+//  debug_print_float(state->est_currentRpm);
+//
+//  debug_print_str("\n");
 }
 
 void app_execute_command(Command *command, DriveState *state)
@@ -218,41 +219,58 @@ void app_execute_command(Command *command, DriveState *state)
 		break;
 
 	  case InvalidMotor:
-		debug_print_str(invalid_motor);
+//		debug_print_str(invalid_motor);
 		break;
 
 	  case InvalidMode:
-		debug_print_str(invalid_mode);
+//		debug_print_str(invalid_mode);
 		break;
 
 	  case InvalidStop:
-		debug_print_str(invalid_stop);
+//		debug_print_str(invalid_stop);
 		break;
 
 	  case InvalidStatus:
-		debug_print_str(invalid_status);
+//		debug_print_str(invalid_status);
 		break;
 
 	  case Unknown:
-		debug_print_str(unknown);
+//		debug_print_str(unknown);
 		break;
 
 	  case None:
-		debug_print_str(none);
+//		debug_print_str(none);
 		break;
 	}
 }
 
-void app_process_command(const uint8_t *readBuf, uint16_t rxSize)
+bool app_try_process_command(const char *readBuf, uint16_t rxSize, const char *error_message)
 {
-	reader_read(readBuf, rxSize);
-	RawCmd rawCmd;
-	while(reader_get_command(&rawCmd))
+	reader_status status = reader_read(readBuf, rxSize);
+	switch (status)
 	{
-		Command command = parse(&rawCmd);
+		case READER_ERR_CMD_TOO_LONG:
+			error_message = reader_cmd_too_long;
+			return false;
 
-		// app_execute_command
+		case READER_ERR_RING_OVERFLOW:
+			error_message = reader_ring_overflow;
+			return false;
+
+		case READER_OK:
+			break;
 	}
+
+	reader_raw_cmd raw_cmd;
+	while(reader_try_get_command(&raw_cmd))
+	{
+		Command command = parse(raw_cmd.cmd);
+
+		// TODO app_execute_command
+	}
+
+	error_message = NULL;
+	return true;
 }
 
 void app_init(void)

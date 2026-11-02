@@ -12,12 +12,6 @@ extern "C" {
 #define RX_BUFFER_SIZE 64 // Must be several MAX_CMD_LENGTH
 #define MAX_CMD_LENGTH 13 // Extra 1 element for '\0' char
 
-typedef struct
-{
-	uint8_t cmd[MAX_CMD_LENGTH];
-	uint8_t len;
-} RawCmd;
-
 typedef enum
 {
   Motor,
@@ -66,7 +60,7 @@ void debug_print_str(const char *msg);
 void debug_print_int16(int16_t num);
 void debug_print_int32(int32_t num);
 void debug_print_float(float num);
-void app_process_command(const uint8_t *readBuf, uint16_t rxSize);
+void app_process_command(const char *readBuf, uint16_t rxSize);
 void app_init(void);
 void app_do_control_action(void);
 char *app_get_telemetry(size_t * buf_len);

@@ -11,7 +11,7 @@ typedef struct
   size_t length;
 } Token;
 
-static void tokenize(Token * tokens, size_t * tokenCount, const RawCmd * rawCmd);
+static void tokenize(Token * tokens, size_t * tokenCount, const char *raw_cmd);
 static void parseModeCmd(Token * tokens, size_t tokenCount, Command * command);
 static void parseMotorCmd(Token * tokens, size_t tokenCount, Command * command);
 static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command);
@@ -24,11 +24,11 @@ const char *autoModeCmd = "AUTO";
 const char *manualModeCmd = "MANUAL";
 const char *statusCmd = "STATUS";
 
-Command parse(const RawCmd * rawCmd)
+Command parse(const char *raw_cmd)
 {
   Token tokens[MAX_CMD_PARTS] = {0};
   size_t tokenCount = 0;
-  tokenize(tokens, &tokenCount, rawCmd);
+  tokenize(tokens, &tokenCount, raw_cmd);
 
   Command command = {
 		.type = Unknown,
@@ -51,26 +51,25 @@ Command parse(const RawCmd * rawCmd)
   return command;
 }
 
-static void tokenize(Token * tokens, size_t * tokenCount, const RawCmd * rawCmd)
+static void tokenize(Token * tokens, size_t * tokenCount, const char *raw_cmd)
 {
 	size_t i = 0;
 	*tokenCount = 0;
-	const uint8_t * rawContent = rawCmd->cmd;
 	bool isPrevSpace = false;
 
-	while (*rawContent == ' ')
-	  rawContent++;
+	while (*raw_cmd == ' ')
+		raw_cmd++;
 
-	while (*rawContent != '\0')
+	while (*raw_cmd != '\0')
 	{
-		if (*rawContent == ' ' && !isPrevSpace)
+		if (*raw_cmd == ' ' && !isPrevSpace)
 		{
 			(*tokens).content[i] = '\0';
 			tokens++;
 			i = 0;
 			isPrevSpace = true;
 		}
-		else if (*rawContent != ' ')
+		else if (*raw_cmd != ' ')
 		{
 			if (i == 0)
 			  (*tokenCount)++;
@@ -80,12 +79,12 @@ static void tokenize(Token * tokens, size_t * tokenCount, const RawCmd * rawCmd)
 
 			if (i < MAX_CMD_LENGTH - 1)
 			{
-				(*tokens).content[i++] = *rawContent;
+				(*tokens).content[i++] = *raw_cmd;
 				(*tokens).length = i;
 			}
 			isPrevSpace = false;
 		}
-		rawContent++;
+		raw_cmd++;
 	}
 
 	if (*tokenCount != 0 && !isPrevSpace)

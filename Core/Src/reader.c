@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "app.h"
+#include "reader.h"
 #define MAX_CMD_COUNT 16 // MUST be power of two. Actual capacity MAX_CMD_COUNT - 1
 #define TERMINATOR1 '\n'
 #define TERMINATOR2 '\r'
@@ -12,18 +13,15 @@ typedef enum
   Discarding
 } State;
 
-static bool push(RawCmd cmd);
-static bool pop(RawCmd *value);
-static void handleIdle(const uint8_t *readBuf, uint16_t rxSize);
-static void handleReading(const uint8_t *readBuf, uint16_t rxSize);
-static void handleDiscarding(const uint8_t *readBuf, uint16_t rxSize);
+static bool push(reader_raw_cmd cmd);
+static bool pop(reader_raw_cmd *value);
+static reader_status handleIdle(const char *readBuf, uint16_t rxSize);
+static reader_status handleReading(const char *readBuf, uint16_t rxSize);
+static void handleDiscarding(const char *readBuf, uint16_t rxSize);
 static bool isTerminator(uint8_t ch);
 
-static const char * const cmd_too_long = "READER ERROR: COMMAND TOO LONG\n";
-static const char * const ring_overflow = "READER ERROR: COMMAND RING OVERFLOW\n";
-
-static RawCmd currCmd;
-static RawCmd cmd_ring[MAX_CMD_COUNT];
+static reader_raw_cmd currCmd;
+static reader_raw_cmd cmd_ring[MAX_CMD_COUNT];
 static uint8_t head = 0;
 static uint8_t tail = 0;
 static uint32_t dropped = 0;
@@ -34,37 +32,46 @@ static State state = Idle;
 // - several commands per buffer
 // state needed for single character mode only
 
-void reader_read(const uint8_t *readBuf, uint16_t rxSize)
+reader_status reader_read(const char *readBuf, uint16_t rxSize)
 {
+	reader_status status = READER_OK;
+
 	if (rxSize == 0 || readBuf == NULL)
-		return;
+		return status;
 
 	switch (state)
 	{
 		case Idle:
-			handleIdle(readBuf, rxSize);
+			status = handleIdle(readBuf, rxSize);
 			break;
 		case Reading:
-			handleReading(readBuf, rxSize);
+			status = handleReading(readBuf, rxSize);
 			break;
 		case Discarding:
 			handleDiscarding(readBuf, rxSize);
 			break;
 	}
+
+	return status;
 }
 
-static void handleIdle(const uint8_t *readBuf, uint16_t rxSize)
+static reader_status handleIdle(const char *readBuf, uint16_t rxSize)
 {
+	reader_status status = READER_OK;
 	currCmd.len = 0;
+
 	if (rxSize != 0)
 	{
 		state = Reading;
-		handleReading(readBuf, rxSize);
+		status = handleReading(readBuf, rxSize);
 	}
+
+	return status;
 }
 
-static void handleReading(const uint8_t *readBuf, uint16_t rxSize)
+static reader_status handleReading(const char *readBuf, uint16_t rxSize)
 {
+	reader_status status = READER_OK;
 	uint8_t lastCh = 0;
 	bool discarding = false; // for discarding long command within buffer only
 	for (uint16_t i = 0; i < rxSize; i++)
@@ -75,7 +82,7 @@ static void handleReading(const uint8_t *readBuf, uint16_t rxSize)
 			if (discarding)
 				discarding = false;
 			else if (currCmd.len != 0 && !push(currCmd))
-				debug_print_str(ring_overflow);
+				status = READER_ERR_RING_OVERFLOW;
 
 			currCmd.len = 0;
 			continue;
@@ -91,7 +98,7 @@ static void handleReading(const uint8_t *readBuf, uint16_t rxSize)
 		else
 		{
 			discarding = true;
-			debug_print_str(cmd_too_long);
+			status = READER_ERR_CMD_TOO_LONG;
 		}
 	}
 
@@ -99,6 +106,8 @@ static void handleReading(const uint8_t *readBuf, uint16_t rxSize)
 		state = Discarding;
 	else if (isTerminator(lastCh))
 		state = Idle;
+
+	return status;
 }
 
 static bool isTerminator(uint8_t ch)
@@ -106,7 +115,7 @@ static bool isTerminator(uint8_t ch)
 	return ch == TERMINATOR1 || ch == TERMINATOR2;
 }
 
-static void handleDiscarding(const uint8_t *readBuf, uint16_t rxSize)
+static void handleDiscarding(const char *readBuf, uint16_t rxSize)
 {
     for (uint16_t i = 0; i < rxSize; i++)
     {
@@ -121,7 +130,7 @@ static void handleDiscarding(const uint8_t *readBuf, uint16_t rxSize)
     }
 }
 
-bool reader_get_command(RawCmd * cmd)
+bool reader_try_get_command(reader_raw_cmd *(cmd))
 {
 	return pop(cmd);
 }
@@ -140,7 +149,7 @@ uint32_t reader_dropped_count(void)
     return dropped;
 }
 
-static bool push(RawCmd cmd)
+static bool push(reader_raw_cmd cmd)
 {
 	uint8_t next = (head + 1) & (MAX_CMD_COUNT - 1);
 	if (next == tail)
@@ -155,7 +164,7 @@ static bool push(RawCmd cmd)
 	return true;
 }
 
-static bool pop(RawCmd *value)
+static bool pop(reader_raw_cmd *value)
 {
   if (head == tail)
     return false;
