@@ -223,7 +223,8 @@ TEST(Parser, test_low_case)
 	TEST_ASSERT_TRUE(parsed.type == Unknown);
 }
 
-TEST(Parser, test_motor_max_target) {
+TEST(Parser, test_motor_max_target)
+{
 	char *input = "MOTOR 1 250";
     Command parsed = parse(input);
     TEST_ASSERT_EQUAL(Motor, parsed.type);
@@ -231,7 +232,8 @@ TEST(Parser, test_motor_max_target) {
     TEST_ASSERT_EQUAL(250, parsed.target);
 }
 
-TEST(Parser, test_motor_max_negative) {
+TEST(Parser, test_motor_max_negative)
+{
 	char *input = "MOTOR 1 -250";
     Command parsed = parse(input);
     TEST_ASSERT_EQUAL(Motor, parsed.type);
@@ -240,53 +242,6 @@ TEST(Parser, test_motor_max_negative) {
 
 TEST_GROUP_RUNNER(Parser)
 {
-	// tokenize
-	RUN_TEST_CASE(Parser, test_empty_string);
-	RUN_TEST_CASE(Parser, test_only_spaces);
-	RUN_TEST_CASE(Parser, test_leading_spaces);
-	RUN_TEST_CASE(Parser, test_trailing_spaces);
-	RUN_TEST_CASE(Parser, test_double_spaces);
-	RUN_TEST_CASE(Parser, test_single_token);
-
-	// tryGetLong
-	RUN_TEST_CASE(Parser, test_motor_positive);
-	RUN_TEST_CASE(Parser, test_motor_negative);
-	RUN_TEST_CASE(Parser, test_motor_zero);
-	RUN_TEST_CASE(Parser, test_motor_trailing_garbage);
-	RUN_TEST_CASE(Parser, test_motor_leading_garbage);
-	RUN_TEST_CASE(Parser, test_motor_num_garbage);
-
-	// parseMotorCmd
-	RUN_TEST_CASE(Parser, test_motor_valid);
-	RUN_TEST_CASE(Parser, test_motor_mo_args);
-	RUN_TEST_CASE(Parser, test_motor_too_many_args);
-	RUN_TEST_CASE(Parser, test_motor_any_number);
-
-	// parseStopCmd
-	RUN_TEST_CASE(Parser, test_stop_no_args);
-	RUN_TEST_CASE(Parser, test_stop_with_number);
-	RUN_TEST_CASE(Parser, test_stop_invalid_number);
-	RUN_TEST_CASE(Parser, test_stop_too_many_args);
-
-	// parseModeCmd
-	RUN_TEST_CASE(Parser, test_mode_auto);
-	RUN_TEST_CASE(Parser, test_mode_manual);
-	RUN_TEST_CASE(Parser, test_mode_no_args);
-	RUN_TEST_CASE(Parser, test_mode_invalid_arg);
-	RUN_TEST_CASE(Parser, test_mode_extra_arg);
-
-	// General
-	RUN_TEST_CASE(Parser, test_unknown_command);
-	RUN_TEST_CASE(Parser, test_status_valid);
-	RUN_TEST_CASE(Parser, test_status_extra_arg);
-	RUN_TEST_CASE(Parser, test_low_case);
-	RUN_TEST_CASE(Parser, test_motor_max_target);
-	RUN_TEST_CASE(Parser, test_motor_max_negative);
-}
-
-void test_parser(void)
-{
-    //test parser.c
 	// tokenize
 	RUN_TEST_CASE(Parser, test_empty_string);
 	RUN_TEST_CASE(Parser, test_only_spaces);

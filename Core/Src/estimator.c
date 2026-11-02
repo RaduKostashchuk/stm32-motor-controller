@@ -3,12 +3,11 @@
 
 #define DELTA_TIME_SEC 0.05f // TIM4 configured for 20Hz
 #define TICKS_PER_REV 1980
-#define MAX_DELTA_POS 160 // encoder failure protection
+#define MAX_DELTA_POS 160 // encoder failure protection, max rpm 95
 
 static int32_t lastPosition;
 static volatile float rpm;
-static const float deltaTimeSec = 0.05f;
-
+static const float deltaTimeSec = 0.05f
 void estimator_init(int32_t initialPosition)
 {
 	lastPosition = initialPosition;
@@ -19,10 +18,10 @@ void estimator_run(int32_t currentPosition)
 {
 	int32_t deltaPos = currentPosition - lastPosition;
 
-	if (deltaPos >= MAX_DELTA_POS || deltaPos <= -deltaPos)
+	if (deltaPos >= MAX_DELTA_POS || deltaPos <= -MAX_DELTA_POS)
 		return;
 
-    float ticksPerSec = (float)(deltaPos) / deltaTimeSec;
+    float ticksPerSec = (float)(deltaPos) / DELTA_TIME_SEC;
     rpm = 60.0f * ticksPerSec / TICKS_PER_REV;
 
     lastPosition = currentPosition;
