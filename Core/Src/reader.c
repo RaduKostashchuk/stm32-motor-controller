@@ -32,30 +32,30 @@ static State state = Idle;
 // - several commands per buffer
 // state needed for single character mode only
 
-reader_status reader_read(const char *readBuf, uint16_t rxSize)
+reader_status reader_read(const char *read_buf, uint16_t rxSize)
 {
 	reader_status status = READER_OK;
 
-	if (rxSize == 0 || readBuf == NULL)
+	if (rxSize == 0 || read_buf == NULL)
 		return status;
 
 	switch (state)
 	{
 		case Idle:
-			status = handleIdle(readBuf, rxSize);
+			status = handleIdle(read_buf, rxSize);
 			break;
 		case Reading:
-			status = handleReading(readBuf, rxSize);
+			status = handleReading(read_buf, rxSize);
 			break;
 		case Discarding:
-			handleDiscarding(readBuf, rxSize);
+			handleDiscarding(read_buf, rxSize);
 			break;
 	}
 
 	return status;
 }
 
-static reader_status handleIdle(const char *readBuf, uint16_t rxSize)
+static reader_status handleIdle(const char *read_buf, uint16_t rxSize)
 {
 	reader_status status = READER_OK;
 	currCmd.len = 0;
@@ -63,20 +63,20 @@ static reader_status handleIdle(const char *readBuf, uint16_t rxSize)
 	if (rxSize != 0)
 	{
 		state = Reading;
-		status = handleReading(readBuf, rxSize);
+		status = handleReading(read_buf, rxSize);
 	}
 
 	return status;
 }
 
-static reader_status handleReading(const char *readBuf, uint16_t rxSize)
+static reader_status handleReading(const char *read_buf, uint16_t rxSize)
 {
 	reader_status status = READER_OK;
-	uint8_t lastCh = 0;
+	char lastCh = 0;
 	bool discarding = false; // for discarding long command within buffer only
 	for (uint16_t i = 0; i < rxSize; i++)
 	{
-		lastCh = readBuf[i];
+		lastCh = read_buf[i];
 		if (isTerminator(lastCh))
 		{
 			if (discarding)
@@ -115,15 +115,15 @@ static bool isTerminator(uint8_t ch)
 	return ch == TERMINATOR1 || ch == TERMINATOR2;
 }
 
-static void handleDiscarding(const char *readBuf, uint16_t rxSize)
+static void handleDiscarding(const char *read_buf, uint16_t rxSize)
 {
     for (uint16_t i = 0; i < rxSize; i++)
     {
-        if (isTerminator(readBuf[i]))
+        if (isTerminator(read_buf[i]))
         {
         	state = Idle;
         	if (i + 1 < rxSize)
-        		handleIdle(readBuf + i + 1, (uint16_t)(rxSize - i - 1));
+        		handleIdle(read_buf + i + 1, (uint16_t)(rxSize - i - 1));
 
             return;
         }

@@ -4,6 +4,6 @@
 #include <stdint.h>
 #include "app.h"
 
-char *telemetry_get_data(DriveState *state, size_t *bufLen);
+uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t now);
 
 #endif /* INC_TELEMETRY_H_ */

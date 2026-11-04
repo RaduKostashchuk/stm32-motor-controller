@@ -24,7 +24,7 @@ TEST(Controller, test_target_zero_reset_values)
 	controller_set_current_rpm(5.0f);
 	controller_get_control_value();
 
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	TEST_ASSERT_NOT_EQUAL_FLOAT(state.cont_i, 0.0f);
 
@@ -40,7 +40,7 @@ TEST(Controller, test_proportional_positive)
 	controller_set_target_rpm(10.0f);
 	controller_set_current_rpm(0.0f);
 	controller_get_control_value();
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	TEST_ASSERT_TRUE(state.cont_p > 0);
 }
@@ -50,7 +50,7 @@ TEST(Controller, test_proportional_negative)
 	controller_set_target_rpm(-10.0f);
 	controller_set_current_rpm(0.0f);
 	controller_get_control_value();
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	TEST_ASSERT_TRUE(state.cont_p < 0);
 }
@@ -79,7 +79,7 @@ TEST(Controller, test_i_anti_windup_after_accumulation)
 		controller_get_control_value();
 	}
 
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	float i_accumulated = state.cont_i;
 	TEST_ASSERT_GREATER_THAN_FLOAT(0.0f, i_accumulated);
@@ -100,7 +100,7 @@ TEST(Controller, test_i_deadband)
 	controller_set_current_rpm(79.0f);
 	controller_get_control_value();
 
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	float i_prev = state.cont_i;
 
@@ -123,7 +123,7 @@ TEST(Controller, test_steady_state_with_accumulated_i)
 	for (int i = 0; i < 10; i++)
 		controller_get_control_value();
 
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	TEST_ASSERT_GREATER_THAN_FLOAT(0.0f, state.cont_i);
 
@@ -138,7 +138,7 @@ TEST(Controller, test_i_normal_accumulation)
 	controller_set_target_rpm(80.0f);
 	controller_set_current_rpm(50.0f);
 	controller_get_control_value();
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	float i_prev = state.cont_i;
 
@@ -158,7 +158,7 @@ TEST(Controller, test_i_normal_negative_accumulation)
 	controller_set_target_rpm(-80.0f);
 	controller_set_current_rpm(-50.0f);
 	controller_get_control_value();
-	DriveState state;
+	drive_state state;
 	controller_fill_drive_state(&state);
 	float i_prev = state.cont_i;
 	TEST_ASSERT_LESS_THAN_FLOAT(0.0f, i_prev);

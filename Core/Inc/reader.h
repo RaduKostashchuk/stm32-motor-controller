@@ -19,11 +19,11 @@ typedef enum {
 
 typedef struct
 {
-	uint8_t cmd[MAX_CMD_LENGTH];
+	char cmd[MAX_CMD_LENGTH];
 	uint8_t len;
 } reader_raw_cmd;
 
-reader_status reader_read(const char *readBuf, uint16_t rxSize);
+reader_status reader_read(const char *read_buf, uint16_t rxSize);
 bool reader_try_get_command(reader_raw_cmd *raw_cmd);
 void reader_reset(void);
 uint32_t reader_dropped_count(void);

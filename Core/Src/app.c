@@ -7,126 +7,45 @@
 #include "estimator.h"
 #include "telemetry.h"
 #include "format.h"
+#include <string.h>
 
 #define MAX_PWM 255
 #define MIN_PWM -255
 #define MAX_RPM 95
-#define MIN_RPM 0
+#define MIN_RPM -95
+#define READER_CMD_TOO_LONG "READER ERROR: COMMAND TOO LONG\n"
+#define READER_RING_OVERFLOW "READER ERROR: COMMAND RING OVERFLOW\n"
+#define SUCCESS "OK\n"
+#define INVALID_MOTOR "ERROR USAGE MOTOR <motor number> <pwm OR rpm>\n"
+#define INVALID_STOP "ERROR USAGE STOP <motor number> OR STOP\n"
+#define INVALID_STATUS "ERROR USAGE STATUS\n"
+#define INVALID_MODE "ERROR USAGE MODE <AUTO|MANUAL>\n"
+#define UNKNOWN "ERROR UNKNOWN COMMAND\n"
+#define NONE "None\n"
+#define CMD_BUF_SIZE 200
 
-static const char * const reader_cmd_too_long = "READER ERROR: COMMAND TOO LONG\n";
-static const char * const reader_ring_overflow = "READER ERROR: COMMAND RING OVERFLOW\n";
-static const char *success = "OK";
-static const char *unknown = "ERROR UNKNOWN COMMAND";
-static const char *none = "None";
-static const char *invalid_motor = "ERROR USAGE MOTOR <motor number> <pwm OR rpm>";
-static const char *invalid_stop = "ERROR USAGE STOP <motor number> OR STOP";
-static const char *invalid_mode = "ERROR USAGE MODE <AUTO|MANUAL>";
-static const char *invalid_status = "ERROR USAGE STATUS";
-static ModeType app_mode = Auto;
-static DriveState state;
+static const char reader_cmd_too_long[] = READER_CMD_TOO_LONG;
+static const char reader_ring_overflow[] = READER_RING_OVERFLOW;
+static const char success[] = SUCCESS;
+static const char unknown[] = UNKNOWN;
+static const char none[] = NONE;
+static const char invalid_motor[] = INVALID_MOTOR;
+static const char invalid_stop[] = INVALID_STOP;
+static const char invalid_mode[] = INVALID_MODE;
+static const char invalid_status[] = INVALID_STATUS;
+static mode_type app_mode = Auto;
+static char cmd_buf[CMD_BUF_SIZE] = {0};
+drive_state state;
 
-//void debug_print(const uint8_t *msg, size_t len)
-//{
-//	for (uint16_t i = 0; i < len; i++)
-//		ITM_SendChar(msg[i]);
-//}
-//
-//void debug_print_str(const char *msg)
-//{
-//	while(*msg)
-//		ITM_SendChar(*msg++);
-//}
-//
-//void debug_print_int16(int16_t num)
-//{
-//	bool isNegative = num < 0;
-//	uint16_t absNum;
-//
-//	if (isNegative)
-//	{
-//		absNum = (uint16_t)(-(int32_t)num);
-//		ITM_SendChar('-');
-//	}
-//	else
-//	{
-//		absNum = (uint16_t)num;
-//	}
-//
-//	uint16_t divider = 10000;
-//	bool allZeroes = true;
-//	while(divider > 0)
-//	{
-//		if (absNum >= divider)
-//		{
-//			uint8_t cipher = (uint8_t)(absNum / divider);
-//			allZeroes = false;
-//			ITM_SendChar((char)(cipher + '0'));
-//			absNum %= divider;
-//		}
-//		else if (!allZeroes)
-//		{
-//			ITM_SendChar('0');
-//		}
-//		divider /= 10;
-//	}
-//
-//	if (allZeroes)
-//		ITM_SendChar('0');
-//}
-//
-//void debug_print_int32(int32_t num)
-//{
-//    bool isNegative = num < 0;
-//    uint32_t absNum;
-//
-//    if (isNegative)
-//    {
-//        absNum = (uint32_t)(-(int64_t)num);  // безопасно для INT32_MIN
-//        ITM_SendChar('-');
-//    }
-//    else
-//    {
-//        absNum = (uint32_t)num;
-//    }
-//
-//    uint32_t divider = 1000000000;  // 10^9, тип uint32_t
-//    bool allZeroes = true;
-//
-//    while (divider > 0)
-//    {
-//        if (absNum >= divider)
-//        {
-//            uint8_t cipher = (uint8_t)(absNum / divider);
-//            allZeroes = false;
-//            ITM_SendChar((char)(cipher + '0'));
-//            absNum %= divider;
-//        }
-//        else if (!allZeroes)
-//        {
-//            ITM_SendChar('0');
-//        }
-//        divider /= 10;
-//    }
-//
-//    if (allZeroes)
-//        ITM_SendChar('0');
-//}
-//
-//void debug_print_float(float num)
-//{
-//	const size_t bufSize = 20;
-//	char buf[bufSize];
-//	float_to_char_dec(buf, bufSize, num);
-//	debug_print_str(buf);
-//}
-
-void execute_mode_cmd(Command *command)
+static uint16_t execute_mode_cmd(Command *command, char *reply_buf)
 {
   app_mode = command->modeType;
-//  debug_print_str(success);
+  uint16_t size = sizeof(success) - 1;
+  memcpy(reply_buf, success, size);
+  return size;
 }
 
-void execute_motor_cmd(Command *command, DriveState *state)
+static uint16_t execute_motor_cmd(Command *command, char *reply_buf)
 {
   bool invalidParams = command->motorNumber != 1
     || (app_mode == Auto && (command->target > MAX_RPM || command->target < MIN_RPM))
@@ -134,165 +53,241 @@ void execute_motor_cmd(Command *command, DriveState *state)
 
   if (invalidParams)
   {
-//	debug_print_str(invalid_motor);
-    return;
+	uint16_t size = sizeof(invalid_motor) - 1;
+	memcpy(reply_buf, invalid_motor, size);
+    return size;
   }
 
   if (command->motorNumber == 1)
   {
     if (app_mode == Auto)
     {
-    	state->app_desiredRpm = (float)(command->target);
+    	state.app_desiredRpm = (float)(command->target);
+    	controller_set_target_rpm((float)command->target);
     }
     else if (app_mode == Manual)
     {
-    	motor_set_pwm(state->cont_pwm);
+    	state.cont_pwm = (int16_t)command->target;
+    	motor_set_pwm((int16_t)command->target);
     }
   }
-//  debug_print_str(success);
+
+  uint16_t size = sizeof(success) - 1;
+  memcpy(reply_buf, success, size);
+  return size;
 }
 
-void execute_stop_cmd(Command *command, DriveState *state)
+static uint16_t execute_stop_cmd(Command *command, char *reply_buf)
 {
   if (command->hasMotorNumber && command->motorNumber != 1)
   {
-//	debug_print_str(invalid_stop);
-    return;
+	  uint16_t size = sizeof(invalid_stop) - 1;
+	  memcpy(reply_buf, invalid_stop, size);
+	  return size;
   }
 
   controller_reset();
+  controller_set_target_rpm(0);
   motor_set_pwm(0);
-  state->app_desiredRpm = 0;
+  state.app_desiredRpm = 0;
 
-//  debug_print_str(success);
+  uint16_t size = sizeof(success) - 1;
+  memcpy(reply_buf, success, size);
+  return size;
 }
 
-void app_send_full_status(DriveState * state)
+static uint16_t app_get_full_status(char *reply_buf)
 {
-//	debug_print_str("Application mode:  ");
-//	debug_print_str(app_mode == Auto ? "Auto" : "Manual");
-//
-//	debug_print_str(";  Last motor cmd:  ");
-//  switch (app_mode)
-//  {
-//    case Auto:
-//      debug_print_str("Target Rpm: ");
-//      debug_print_float(state->app_desiredRpm);
-//      break;
-//
-//    case Manual:
-//      debug_print_str("Pwm: ");
-//      debug_print_int16(state->cont_pwm);
-//  }
-//
-//  debug_print_str("\n");
-//
-//  debug_print_str("Encoder:  ");
-//  debug_print_str("Position: ");
-//  debug_print_int32(state->est_position);
-//
-//  debug_print_str(" ||  Estimator:  ");
-//  debug_print_str(";  RPM: ");
-//  debug_print_float(state->est_currentRpm);
-//
-//  debug_print_str("\n");
+	size_t out_len = 0;
+	size_t pos = 0;
+	if (!try_copy_str("Application mode:  ", reply_buf, CMD_BUF_SIZE, &out_len))
+		return 0;
+
+	pos = out_len;
+
+	if (!try_copy_str(app_mode == Auto ? "Auto" : "Manual", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+  switch (app_mode)
+  {
+    case Auto:
+		if (!try_copy_str("Target Rpm: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+			return 0;
+
+		pos += out_len;
+
+		if (!try_float_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.app_desiredRpm, &out_len))
+			return 0;
+
+		pos += out_len;
+		break;
+
+    case Manual:
+		if (!try_copy_str("Pwm: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+			return 0;
+
+		pos += out_len;
+
+		if (!try_int32_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.cont_pwm, &out_len))
+			return 0;
+
+		pos += out_len;
+  }
+
+	if (!try_copy_str(" ||  Encoder:  Position: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	if (!try_int32_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.est_position, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	if (!try_copy_str(" ||  Estimator:  RPM: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	if (!try_float_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.est_currentRpm, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	if (!try_copy_str("\n", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	return (uint16_t)pos;
 }
 
-void app_execute_command(Command *command, DriveState *state)
+static uint16_t app_execute_command(Command *command, char *reply_buf)
 {
+	uint16_t size = 0;
 	switch (command->type)
 	{
 	  case Status:
-		app_send_full_status(state);
-		break;
+		return app_get_full_status(reply_buf);
 
 	  case AppMode:
-		execute_mode_cmd(command);
-		break;
+		return execute_mode_cmd(command, reply_buf);
 
 	  case Motor:
-		execute_motor_cmd(command, state);
-		break;
+		return execute_motor_cmd(command, reply_buf);
 
 	  case Stop:
-		  execute_stop_cmd(command, state);
-		break;
+		return execute_stop_cmd(command, reply_buf);
 
 	  case InvalidMotor:
-//		debug_print_str(invalid_motor);
-		break;
+		size = sizeof(invalid_motor) - 1;
+		memcpy(reply_buf, invalid_motor, size);
+		return size;
 
 	  case InvalidMode:
-//		debug_print_str(invalid_mode);
-		break;
+		size = sizeof(invalid_mode) - 1;
+		memcpy(reply_buf, invalid_mode, size);
+		return size;
 
 	  case InvalidStop:
-//		debug_print_str(invalid_stop);
-		break;
+		size = sizeof(invalid_stop) - 1;
+		memcpy(reply_buf, invalid_stop, size);
+		return size;
 
 	  case InvalidStatus:
-//		debug_print_str(invalid_status);
-		break;
+		 size = sizeof(invalid_status) - 1;
+		memcpy(reply_buf, invalid_status, size);
+		return size;
 
 	  case Unknown:
-//		debug_print_str(unknown);
-		break;
+		size = sizeof(unknown) - 1;
+		memcpy(reply_buf, unknown, size);
+		return size;
 
 	  case None:
-//		debug_print_str(none);
-		break;
+		size = sizeof(none) - 1;
+		memcpy(reply_buf, none, size);
+		return size;
 	}
+	return size;
 }
 
-bool app_try_process_command(const char *readBuf, uint16_t rxSize, const char *error_message)
+uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *reply_buf)
 {
-	reader_status status = reader_read(readBuf, rxSize);
-	switch (status)
+	_Static_assert(APP_REPLY_BUF_SIZE >= 400, "APP_REPLY_BUF_SIZE too small for worst case");
+	_Static_assert(sizeof(reader_cmd_too_long) - 1 <= APP_REPLY_BUF_SIZE, "reader_cmd_too_long larger than reply_buf");
+	_Static_assert(sizeof(reader_ring_overflow) - 1 <= APP_REPLY_BUF_SIZE, "reader_ring_overflow larger than reply_buf");
+	_Static_assert(CMD_BUF_SIZE >= 128, "CMD_BUF_SIZE too small for STATUS reply");
+
+	if (reply_buf == NULL || read_buf == NULL) return 0;
+
+	uint16_t entire_reply_len = 2;
+	memcpy(reply_buf, "R:", entire_reply_len); // Reply prefix
+
+	reader_status status = reader_read(read_buf, received_len);
+	if (status == READER_ERR_CMD_TOO_LONG)
 	{
-		case READER_ERR_CMD_TOO_LONG:
-			error_message = reader_cmd_too_long;
-			return false;
+		uint16_t reply_len = sizeof(reader_cmd_too_long) - 1;
+		memcpy(reply_buf + entire_reply_len, reader_cmd_too_long, reply_len);
+		entire_reply_len += reply_len;
+	}
+	else if (status == READER_ERR_RING_OVERFLOW)
+	{
+		uint16_t reply_len = sizeof(reader_ring_overflow) - 1;
+		memcpy(reply_buf + entire_reply_len, reader_ring_overflow, reply_len);
+		entire_reply_len += reply_len;
+	}
+	else
+	{
+		entire_reply_len = 0;
+		reader_raw_cmd raw_cmd;
+		while(reader_try_get_command(&raw_cmd))
+		{
+			Command command = parse(raw_cmd.cmd);
+			uint16_t cmd_reply_len = app_execute_command(&command, cmd_buf);
+			if (entire_reply_len + cmd_reply_len > APP_REPLY_BUF_SIZE) // discard oversized reply
+				break;
 
-		case READER_ERR_RING_OVERFLOW:
-			error_message = reader_ring_overflow;
-			return false;
-
-		case READER_OK:
-			break;
+			memcpy(reply_buf + entire_reply_len, "R:", 2); // Reply prefix
+			entire_reply_len += 2;
+			memcpy(reply_buf + entire_reply_len, cmd_buf, cmd_reply_len);
+			entire_reply_len += cmd_reply_len;
+		}
 	}
 
-	reader_raw_cmd raw_cmd;
-	while(reader_try_get_command(&raw_cmd))
-	{
-		Command command = parse(raw_cmd.cmd);
-
-		// TODO app_execute_command
-	}
-
-	error_message = NULL;
-	return true;
+	return entire_reply_len;
 }
 
 void app_init(void)
 {
 	encoder_init();
-
 	motor_init();
-
 	estimator_init(encoder_get_position());
-
 	controller_init();
 }
 
-void app_do_control_action(void)
+void app_do_control_action(void) // ISR context
 {
-	estimator_run(encoder_get_position());
-	controller_set_current_rpm(estimator_get_rpm());
-	motor_set_pwm(controller_get_contol_value());
+    int32_t position = encoder_get_position();
+    state.est_position = position;
+
+    estimator_run(position);
+    state.est_currentRpm = estimator_get_rpm();
+
+    controller_set_current_rpm(state.est_currentRpm);
+
+    if (app_mode == Auto)
+    {
+        state.cont_pwm = controller_get_control_value();
+        controller_fill_drive_state(&state);
+        motor_set_pwm(state.cont_pwm);
+    }
 }
 
-char * app_get_telemetry(size_t * buf_len)
+uint16_t app_get_telemetry(char *telemetry_buf, uint32_t now)
 {
-	return telemetry_get_data(&state, buf_len);
+	return telemetry_get_data(&state, telemetry_buf, now);
 }
 

@@ -95,7 +95,7 @@ void controller_set_current_rpm(float current)
   currentRpm = current;
 }
 
-void controller_fill_drive_state(DriveState *state)
+void controller_fill_drive_state(drive_state *state)
 {
 	if (state == NULL)
 		return;

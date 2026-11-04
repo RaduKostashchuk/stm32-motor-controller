@@ -48,9 +48,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static uint8_t dma_buf[RX_BUFFER_SIZE];
-static char read_buf[RX_BUFFER_SIZE];
-static volatile uint16_t rxSize = 0;
+static uint8_t dma_buf[RX_BUF_SIZE];
+static char read_buf[RX_BUF_SIZE];
+static char telemetry_buf[TELEMETRY_BUF_SIZE];
+static char app_reply_buf[APP_REPLY_BUF_SIZE];
+static volatile uint16_t received_len = 0;
 static volatile bool rxDataReady = false;
 static volatile bool uart_hdmarx_locked = false;
 static volatile bool need_rearm = false;
@@ -67,6 +69,7 @@ void SystemClock_Config(void);
 static void unlock_uart_hdma();
 static void init_debugmcu();
 static void rearm_uart_dma_rx();
+void debug_print_str(const char *msg);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -84,7 +87,6 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-	(void)huart;
 	if (huart->Instance != LPUART1)
 		return;
 
@@ -92,7 +94,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 		return;
 
 	memcpy(read_buf, dma_buf, Size);
-	rxSize = Size;
+	received_len = Size;
 	rxDataReady = true;
 }
 
@@ -143,38 +145,34 @@ int main(void)
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
-  HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUFFER_SIZE);
+  HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE);
 
-  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim4); // PID timer
 
   app_init();
 
   /* USER CODE END 2 */
 
-  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
-
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	if (rxDataReady)
+	if (rxDataReady && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
 		rxDataReady = false;
-		app_process_command(read_buf, rxSize);
+		uint16_t reply_len = app_process_command(read_buf, received_len, app_reply_buf);
+		if (reply_len > 0)
+			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)app_reply_buf, reply_len);
+
 		need_rearm = true;
 	}
 
-
-	if (send_telemetry)
+	if (send_telemetry && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
 		send_telemetry = false;
-		if (hlpuart1.gState == HAL_UART_STATE_READY)
-		{
-			size_t telemetry_len = 0;
-			char *telemetry_string = app_get_telemetry(&telemetry_len);
-			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)telemetry_string, (uint16_t)telemetry_len);
-		}
+		uint16_t telemetry_len = app_get_telemetry(telemetry_buf, HAL_GetTick());
+		if (telemetry_len > 0)
+			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)telemetry_buf, (uint16_t)telemetry_len);
 	}
 
 	if (need_rearm)
@@ -239,8 +237,8 @@ void SystemClock_Config(void)
 static void unlock_uart_hdma()
 {
 	uart_hdmarx_locked = false;
-	if (HAL_UART_AbortReceive(&hlpuart1) != HAL_OK)
 	reader_reset();
+	if (HAL_UART_AbortReceive(&hlpuart1) != HAL_OK)
 	{
 	    __HAL_UNLOCK(&hlpuart1);
 	    if (hlpuart1.hdmarx)
@@ -256,12 +254,14 @@ static void unlock_uart_hdma()
 static void rearm_uart_dma_rx()
 {
 	need_rearm = false;
-	if (HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dmaBuf, RX_BUFFER_SIZE) != HAL_OK)
+    if (hlpuart1.RxState == HAL_UART_STATE_BUSY_RX)
+        return;
+
+	if (HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE) != HAL_OK)
 	{
 		if (++rearm_retries >= max_rearm_retries)
 		{
 			debug_print_str(uart_rearm_stuck);
-			HAL_Delay(1);
 			rearm_retries = 0;
 		}
 		need_rearm = true;
@@ -289,6 +289,12 @@ static void init_debugmcu()
 	gpio.Speed = GPIO_SPEED_FREQ_HIGH;
 	gpio.Alternate = GPIO_AF0_TRACE;
 	HAL_GPIO_Init(GPIOB, &gpio);
+}
+
+void debug_print_str(const char *msg)
+{
+	while (*msg)
+		ITM_SendChar(*msg++);
 }
 /* USER CODE END 4 */
 
