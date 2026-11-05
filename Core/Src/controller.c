@@ -4,33 +4,34 @@
 
 #define MIN_CV -255
 #define MAX_CV 255
-#define I_D_DEADBAND 1.5f
+#define I_D_DEADBAND 0.3f
 #define MAX_RAW_DERIVATIVE 30 //d clamp
 #define DELTA_TIME_SEC 0.05f // TIM4 configured for 20Hz
 
 typedef uint32_t (*get_millis_from_start)(void);
 
-static const float kp = 1;
-static const float ki = 1;
-static const float kd = 0;
-static const float ffCoef1 = 2.64f;
-static const float ffCoef2 = -1;
-static float targetRpm;
+static const float kp = 0.25f;
+static const float ki = 2.0f;
+static const float kd = 0.0f;
+static const float ff_coef1 = 2.64f;
+static const float ff_coef2 = -1.0f;
+static const float i_discharge = 2.0f;
+static float target_rpm;
 static float error;
 static float p;
 static float i;
 static float d;
-static float rawDerivative;
-static float previousRpm;
-static float currentRpm;
+static float raw_derivative;
+static float previous_rpm;
+static float current_rpm;
 static float uff;
-static float iSum;
+static float i_sum;
 static int16_t control_value;
 
 void calcI()
 {
-  float currentI = error * DELTA_TIME_SEC;
-  float rawOutput = uff + p + (iSum + currentI) * ki + d;
+  float current_i = error * DELTA_TIME_SEC;
+  float rawOutput = uff + p + (i_sum + current_i) * ki + d;
 
   if ((rawOutput > MAX_CV && error > 0) || (rawOutput < MIN_CV && error < 0)) //anti windup
 	return;
@@ -38,8 +39,13 @@ void calcI()
   if (fabsf(error) <= I_D_DEADBAND)
 	return;
 
-  iSum += currentI;
-  i = iSum * ki;
+  if (error < 0)
+	  i_sum += current_i * i_discharge;
+  else
+	  i_sum += current_i;
+
+  i_sum += current_i;
+  i = i_sum * ki;
 }
 
 void calcD()
@@ -47,52 +53,52 @@ void calcD()
   if (kd == 0)
   {
 	d = 0;
-	previousRpm = currentRpm;
+	previous_rpm = current_rpm;
 	return;
   }
 
   if (fabsf(error) <= I_D_DEADBAND)
   {
 	d = 0;
-	previousRpm = currentRpm;
+	previous_rpm = current_rpm;
 	return;
   }
 
-  rawDerivative = (previousRpm - currentRpm) / DELTA_TIME_SEC;
+  raw_derivative = (previous_rpm - current_rpm) / DELTA_TIME_SEC;
 
   // d clamping
-  if (rawDerivative > MAX_RAW_DERIVATIVE)
-	  rawDerivative = MAX_RAW_DERIVATIVE;
-  else if (rawDerivative < -MAX_RAW_DERIVATIVE)
-	  rawDerivative = -MAX_RAW_DERIVATIVE;
+  if (raw_derivative > MAX_RAW_DERIVATIVE)
+	  raw_derivative = MAX_RAW_DERIVATIVE;
+  else if (raw_derivative < -MAX_RAW_DERIVATIVE)
+	  raw_derivative = -MAX_RAW_DERIVATIVE;
 
-  d = kd * rawDerivative;
-  previousRpm = currentRpm;
+  d = kd * raw_derivative;
+  previous_rpm = current_rpm;
 }
 
 void controller_init()
 {
-  targetRpm = 0;
+	target_rpm = 0;
   error = 0;
   p = 0;
   i = 0;
   d = 0;
-  rawDerivative = 0;
-  previousRpm = 0;
-  currentRpm = 0;
+  raw_derivative = 0;
+  previous_rpm = 0;
+  current_rpm = 0;
   uff = 0;
-  iSum = 0;
+  i_sum = 0;
   control_value = 0;
 }
 
 void controller_set_target_rpm(float target)
 {
-  targetRpm = target;
+	target_rpm = target;
 }
 
 void controller_set_current_rpm(float current)
 {
-  currentRpm = current;
+	current_rpm = current;
 }
 
 void controller_fill_drive_state(drive_state *state)
@@ -110,18 +116,18 @@ void controller_fill_drive_state(drive_state *state)
 
 int16_t controller_get_control_value()
 {
-  if (targetRpm == 0)
+  if (target_rpm == 0)
   {
-      iSum = 0;
+      i_sum = 0;
       i = 0;
       control_value = 0;
-      previousRpm = currentRpm;
+      previous_rpm = current_rpm;
       return 0;
   }
 
-  error = targetRpm - currentRpm;
+  error = target_rpm - current_rpm;
   p = error * kp;
-  uff = ffCoef1 * targetRpm + ffCoef2;
+  uff = ff_coef1 * target_rpm + ff_coef2;
 
   calcD();
   calcI();
@@ -145,15 +151,15 @@ int16_t controller_get_control_value()
 
 void controller_reset()
 {
-  targetRpm = 0;
+  target_rpm = 0;
   error = 0;
   p = 0;
   i = 0;
   d = 0;
-  rawDerivative = 0;
-  previousRpm = 0;
+  raw_derivative = 0;
+  previous_rpm = 0;
   uff = 0;
-  iSum = 0;
+  i_sum = 0;
   control_value = 0;
-  currentRpm = 0;
+  current_rpm = 0;
 }

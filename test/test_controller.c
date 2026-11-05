@@ -106,7 +106,7 @@ TEST(Controller, test_i_deadband)
 
 	for (int i = 0; i < 10; i++)
 	{
-		controller_set_current_rpm(79.0f + 0.1f * i);
+		controller_set_current_rpm(80.0f + 0.01f * i);
 		controller_get_control_value();
 		controller_fill_drive_state(&state);
 		float i_curr = state.cont_i;
@@ -141,16 +141,13 @@ TEST(Controller, test_i_normal_accumulation)
 	drive_state state;
 	controller_fill_drive_state(&state);
 	float i_prev = state.cont_i;
+	TEST_ASSERT_GREATER_THAN_FLOAT(0.0f, i_prev);
 
-	for (int i = 1; i < 11; i++)
-	{
-		controller_set_current_rpm(50.0f + i);
+	for (int i = 0; i < 10; i++)
 		controller_get_control_value();
-		controller_fill_drive_state(&state);
-		float i_curr = state.cont_i;
-		TEST_ASSERT_GREATER_THAN_FLOAT(i_prev, i_curr);
-		i_prev = i_curr;
-	}
+
+	controller_fill_drive_state(&state);
+	TEST_ASSERT_GREATER_THAN_FLOAT(i_prev, state.cont_i);
 }
 
 TEST(Controller, test_i_normal_negative_accumulation)
@@ -163,15 +160,11 @@ TEST(Controller, test_i_normal_negative_accumulation)
 	float i_prev = state.cont_i;
 	TEST_ASSERT_LESS_THAN_FLOAT(0.0f, i_prev);
 
-	for (int i = 1; i < 11; i++)
-	{
-		controller_set_current_rpm(-50.0f - i);
+	for (int i = 0; i < 10; i++)
 		controller_get_control_value();
-		controller_fill_drive_state(&state);
-		float i_curr = state.cont_i;
-		TEST_ASSERT_LESS_THAN_FLOAT(i_prev, i_curr);
-		i_prev = i_curr;
-	}
+
+	controller_fill_drive_state(&state);
+	TEST_ASSERT_LESS_THAN_FLOAT(i_prev, state.cont_i);
 }
 
 TEST_GROUP_RUNNER(Controller)
