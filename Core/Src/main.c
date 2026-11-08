@@ -100,7 +100,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	if (htim->Instance == TIM4)
+	if (htim->Instance == TIM6)
 	{
 		send_telemetry = true;
 		app_do_control_action();
@@ -140,14 +140,14 @@ int main(void)
   MX_DMA_Init();
   MX_LPUART1_UART_Init();
   MX_TIM2_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
+  MX_TIM6_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
   HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE);
 
-  HAL_TIM_Base_Start_IT(&htim4); // PID timer
+  HAL_TIM_Base_Start_IT(&htim6); // PID timer
 
   app_init();
 

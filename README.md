@@ -59,11 +59,17 @@
 **Схема подключения:**
 - Encoder channel A - STM PA0
 - Encoder channel B - STM PA1
-- Driver PWM - STM PA6
+- Driver PWM - STM PC0
 - Driver direction 1 - STM PA5
 - Driver direction 2 - STM PA7
 - Питание мотора и платы (J5 на E5V) обеспечивается сборкой из 3х аккумуляторов 18650 через драйвер. Сборка балансируется BMS HXYP-TY-T20.
 - Телеметрия и команды передаются через micro usb CN1
+
+**Таймеры**
+- TIM1: CH1, PSC 32, ARR 255 - PWM сигнал для мотора (частота PWM 20КГц)
+- TIM2: CH1, CH2, encoder mode - сигналы от энкодера
+- TIM6: PSC 1699, ARR 4599 - задание частоты запуска PID регулятора (20Гц)
+
 
 ![Скриншот проекта](docs/project.png)
 
