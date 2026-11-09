@@ -5,7 +5,7 @@ import time
 PORT = 'COM7'
 BAUD = 115200
 DURATION = 20          # сколько секунд писать
-OUTPUT_FILE = 'src/scripts/out/telemetry.csv'
+OUTPUT_FILE = 'out/telemetry.csv'
 TARGET_RPM = 50
 
 # ==== ОТКРЫТИЕ ПОРТА ====

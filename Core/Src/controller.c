@@ -44,7 +44,6 @@ void calcI()
   else
 	  i_sum += current_i;
 
-  i_sum += current_i;
   i = i_sum * ki;
 }
 
