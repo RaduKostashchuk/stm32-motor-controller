@@ -107,6 +107,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 }
 
+void HAL_TIM_TriggerCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM3)
+	{
+		debug_print_str("trgo received");
+	}
+}
+
+void HAL_TIM_ErrorCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM3)
+	{
+		debug_print_str("tim3 error");
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -142,12 +158,16 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM6_Init();
   MX_TIM1_Init();
+  MX_TIM3_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
   HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE);
 
   HAL_TIM_Base_Start_IT(&htim6); // PID timer
+
+  HAL_TIM_Base_Start_IT(&htim3); // Encoder 1 slave
 
   app_init();
 
@@ -255,7 +275,9 @@ static void rearm_uart_dma_rx()
 {
 	need_rearm = false;
     if (hlpuart1.RxState == HAL_UART_STATE_BUSY_RX)
-        return;
+    {
+    	return;
+    }
 
 	if (HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE) != HAL_OK)
 	{
