@@ -21,6 +21,8 @@
 #define INVALID_STATUS "ERROR USAGE STATUS\n"
 #define INVALID_MODE "ERROR USAGE MODE <AUTO|MANUAL>\n"
 #define UNKNOWN "ERROR UNKNOWN COMMAND\n"
+#define STATUS_SEPARATOR " || "
+#define APP_REPLY_PREFIX "R:"
 #define NONE "None\n"
 #define CMD_BUF_SIZE 200
 
@@ -33,13 +35,23 @@ static const char invalid_motor[] = INVALID_MOTOR;
 static const char invalid_stop[] = INVALID_STOP;
 static const char invalid_mode[] = INVALID_MODE;
 static const char invalid_status[] = INVALID_STATUS;
+static const char status_separator[] = STATUS_SEPARATOR;
+static const char app_reply_prefix[] = APP_REPLY_PREFIX;
 static mode_type app_mode = Auto;
 static char cmd_buf[CMD_BUF_SIZE] = {0};
 drive_state state;
 
 static uint16_t execute_mode_cmd(Command *command, char *reply_buf)
 {
-  app_mode = command->modeType;
+  if (app_mode != command->modeType) // When mode changed stop motor
+  {
+	  app_mode = command->modeType;
+	  controller_reset();
+	  controller_set_target_rpm(0);
+	  motor_set_pwm(0);
+	  state.app_desiredRpm = 0;
+  }
+
   uint16_t size = sizeof(success) - 1;
   memcpy(reply_buf, success, size);
   return size;
@@ -110,9 +122,14 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 	pos += out_len;
 
-  switch (app_mode)
-  {
-    case Auto:
+	if (!try_copy_str(status_separator, reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	switch (app_mode)
+	{
+	case Auto:
 		if (!try_copy_str("Target Rpm: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
 			return 0;
 
@@ -124,7 +141,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 		pos += out_len;
 		break;
 
-    case Manual:
+	case Manual:
 		if (!try_copy_str("Pwm: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
 			return 0;
 
@@ -134,9 +151,14 @@ static uint16_t app_get_full_status(char *reply_buf)
 			return 0;
 
 		pos += out_len;
-  }
+	}
 
-	if (!try_copy_str(" ||  Encoder:  Position: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+	if (!try_copy_str(status_separator, reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	if (!try_copy_str("Encoder:  Position: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -146,7 +168,12 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 	pos += out_len;
 
-	if (!try_copy_str(" ||  Estimator:  RPM: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+	if (!try_copy_str(status_separator, reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
+		return 0;
+
+	pos += out_len;
+
+	if (!try_copy_str("Estimator:  RPM: ", reply_buf + pos, CMD_BUF_SIZE - pos, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -250,8 +277,9 @@ uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *
 			if (entire_reply_len + cmd_reply_len > APP_REPLY_BUF_SIZE) // discard oversized reply
 				break;
 
-			memcpy(reply_buf + entire_reply_len, "R:", 2); // Reply prefix
-			entire_reply_len += 2;
+			uint8_t app_reply_prefix_len = sizeof(app_reply_prefix) - 1;
+			memcpy(reply_buf + entire_reply_len, app_reply_prefix, app_reply_prefix_len);
+			entire_reply_len += app_reply_prefix_len;
 			memcpy(reply_buf + entire_reply_len, cmd_buf, cmd_reply_len);
 			entire_reply_len += cmd_reply_len;
 		}
@@ -289,5 +317,13 @@ void app_do_control_action(void) // ISR context
 uint16_t app_get_telemetry(char *telemetry_buf, uint32_t now)
 {
 	return telemetry_get_data(&state, telemetry_buf, now);
+}
+
+void app_do_silence_action()
+{
+	controller_reset();
+	controller_set_target_rpm(0);
+	motor_set_pwm(0);
+	state.app_desiredRpm = 0;
 }
 

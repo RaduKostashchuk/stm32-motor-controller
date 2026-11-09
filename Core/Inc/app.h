@@ -13,6 +13,7 @@ extern "C" {
 #define MAX_CMD_LENGTH 13 // Extra 1 element for '\0' char
 #define TELEMETRY_BUF_SIZE 160
 #define APP_REPLY_BUF_SIZE 400
+#define UART_MAX_SILENCE_DURATION_MS 60000
 
 typedef enum
 {
@@ -61,6 +62,7 @@ uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *
 void app_init(void);
 void app_do_control_action(void);
 uint16_t app_get_telemetry(char *telemetry_buf, uint32_t now);
+void app_do_silence_action();
 
 #ifdef __cplusplus
 }

@@ -60,6 +60,7 @@ static uint16_t rearm_retries = 0;
 static const uint16_t max_rearm_retries = 100;
 static const char * const uart_rearm_stuck = "UART DMA rearm stuck\n";
 static volatile bool send_telemetry = false;
+static uint32_t uartSilenceStart = 0;
 
 /* USER CODE END PV */
 
@@ -145,11 +146,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
+  app_init();
+
   HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE);
 
   HAL_TIM_Base_Start_IT(&htim6); // PID timer
-
-  app_init();
 
   /* USER CODE END 2 */
 
@@ -157,6 +158,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	uint32_t now = HAL_GetTick();
+
 	if (rxDataReady && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
 		rxDataReady = false;
@@ -165,12 +168,19 @@ int main(void)
 			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)app_reply_buf, reply_len);
 
 		need_rearm = true;
+		uartSilenceStart = now;
+	}
+
+	if (!rxDataReady && now - uartSilenceStart >= UART_MAX_SILENCE_DURATION_MS)
+	{
+		app_do_silence_action();
+		uartSilenceStart = now;
 	}
 
 	if (send_telemetry && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
 		send_telemetry = false;
-		uint16_t telemetry_len = app_get_telemetry(telemetry_buf, HAL_GetTick());
+		uint16_t telemetry_len = app_get_telemetry(telemetry_buf, now);
 		if (telemetry_len > 0)
 			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)telemetry_buf, (uint16_t)telemetry_len);
 	}
@@ -255,7 +265,9 @@ static void rearm_uart_dma_rx()
 {
 	need_rearm = false;
     if (hlpuart1.RxState == HAL_UART_STATE_BUSY_RX)
-        return;
+    {
+    	return;
+    }
 
 	if (HAL_UARTEx_ReceiveToIdle_DMA(&hlpuart1, dma_buf, RX_BUF_SIZE) != HAL_OK)
 	{

@@ -2,7 +2,7 @@ import csv
 import matplotlib.pyplot as plt
 
 # ==== НАСТРОЙКИ ====
-INPUT_FILE = 'src/scripts/out/telemetry.csv'
+INPUT_FILE = 'out/telemetry.csv'
 TARGET_RPM = 50          # уставка, которую подавали
 
 # ==== ЧТЕНИЕ CSV ====
@@ -65,6 +65,6 @@ ax2.grid(True, alpha=0.3)
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig('src/scripts/images/step_response.png', dpi=100)
+plt.savefig('images/step_response.png', dpi=100)
 print("График сохранён в step_response.png")
 plt.show()
