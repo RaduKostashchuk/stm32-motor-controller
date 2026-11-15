@@ -54,8 +54,8 @@ typedef struct
 	float cont_uff;
 	int16_t cont_pwm;
 	int32_t est_position;
-	float est_currentRpm;
-	float app_desiredRpm;
+	float est_current_rpm;
+	float app_desired_rpm;
 } drive_state;
 
 uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *reply_buf);
@@ -63,6 +63,9 @@ void app_init(void);
 void app_do_control_action(void);
 uint16_t app_get_telemetry(char *telemetry_buf, uint32_t now);
 void app_do_silence_action();
+void app_run_t_method(uint32_t cpu_cycles, uint32_t now);
+void app_reader_reset(void);
+void app_try_reset_t_method(uint32_t now);
 
 #ifdef __cplusplus
 }

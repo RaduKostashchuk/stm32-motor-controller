@@ -8,6 +8,7 @@
 #include "telemetry.h"
 #include "format.h"
 #include <string.h>
+#include "capture_diag.h"
 
 #define MAX_PWM 255
 #define MIN_PWM -255
@@ -49,7 +50,7 @@ static uint16_t execute_mode_cmd(Command *command, char *reply_buf)
 	  controller_reset();
 	  controller_set_target_rpm(0);
 	  motor_set_pwm(0);
-	  state.app_desiredRpm = 0;
+	  state.app_desired_rpm = 0;
   }
 
   uint16_t size = sizeof(success) - 1;
@@ -74,7 +75,7 @@ static uint16_t execute_motor_cmd(Command *command, char *reply_buf)
   {
     if (app_mode == Auto)
     {
-    	state.app_desiredRpm = (float)(command->target);
+    	state.app_desired_rpm = (float)(command->target);
     	controller_set_target_rpm((float)command->target);
     }
     else if (app_mode == Manual)
@@ -101,7 +102,8 @@ static uint16_t execute_stop_cmd(Command *command, char *reply_buf)
   controller_reset();
   controller_set_target_rpm(0);
   motor_set_pwm(0);
-  state.app_desiredRpm = 0;
+  state.app_desired_rpm = 0;
+  state.cont_pwm = 0;
 
   uint16_t size = sizeof(success) - 1;
   memcpy(reply_buf, success, size);
@@ -135,7 +137,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 		pos += out_len;
 
-		if (!try_float_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.app_desiredRpm, &out_len))
+		if (!try_float_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.app_desired_rpm, &out_len))
 			return 0;
 
 		pos += out_len;
@@ -178,7 +180,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 	pos += out_len;
 
-	if (!try_float_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.est_currentRpm, &out_len))
+	if (!try_float_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.est_current_rpm, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -298,13 +300,11 @@ void app_init(void)
 
 void app_do_control_action(void) // ISR context
 {
-    int32_t position = encoder_get_position();
-    state.est_position = position;
+    state.est_position = encoder_get_position();
 
-    estimator_run(position);
-    state.est_currentRpm = estimator_get_rpm();
+    state.est_current_rpm = estimator_get_rpm_t();
 
-    controller_set_current_rpm(state.est_currentRpm);
+    controller_set_current_rpm(state.est_current_rpm);
 
     if (app_mode == Auto)
     {
@@ -312,6 +312,21 @@ void app_do_control_action(void) // ISR context
         controller_fill_drive_state(&state);
         motor_set_pwm(state.cont_pwm);
     }
+}
+
+void app_run_t_method(uint32_t cpu_cycles, uint32_t now)
+{
+	estimator_update_t(cpu_cycles, encoder_get_position(), now);
+}
+
+void app_reader_reset(void)
+{
+	reader_reset();
+}
+
+void app_try_reset_t_method(uint32_t now)
+{
+	estimator_try_reset_t_method(now, encoder_get_position());
 }
 
 uint16_t app_get_telemetry(char *telemetry_buf, uint32_t now)
@@ -324,6 +339,6 @@ void app_do_silence_action()
 	controller_reset();
 	controller_set_target_rpm(0);
 	motor_set_pwm(0);
-	state.app_desiredRpm = 0;
+	state.app_desired_rpm = 0;
 }
 
