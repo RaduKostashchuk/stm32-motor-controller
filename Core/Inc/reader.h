@@ -5,8 +5,8 @@
  *      Author: user
  */
 
-#ifndef INC_READER_H_
-#define INC_READER_H_
+#ifndef INC_READER_H
+#define INC_READER_H
 
 #include <stdbool.h>
 #include "app.h"
@@ -28,4 +28,4 @@ bool reader_try_get_command(reader_raw_cmd *raw_cmd);
 void reader_reset(void);
 uint32_t reader_dropped_count(void);
 
-#endif /* INC_READER_H_ */
+#endif /* INC_READER_H */

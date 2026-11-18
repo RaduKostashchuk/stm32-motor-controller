@@ -1,5 +1,5 @@
-#ifndef INC_ESTIMATOR_H_
-#define INC_ESTIMATOR_H_
+#ifndef INC_ESTIMATOR_H
+#define INC_ESTIMATOR_H
 
 #include <stdint.h>
 
@@ -17,4 +17,4 @@ float estimator_get_rpm_t(void);
 void estimator_update_t(uint32_t cpu_cycles, int32_t cur_pos, uint32_t now);
 void estimator_try_reset_t_method(uint32_t now, int32_t cur_pos);
 
-#endif /* INC_ESTIMATOR_H_ */
+#endif /* INC_ESTIMATOR_H */

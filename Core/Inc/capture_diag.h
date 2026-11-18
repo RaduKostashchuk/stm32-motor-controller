@@ -1,5 +1,5 @@
-#ifndef __CAPTURE_DIAG_H__
-#define __CAPTURE_DIAG_H__
+#ifndef CAPTURE_DIAG_H
+#define CAPTURE_DIAG_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,4 +27,4 @@ void debug_print(char *buf, size_t len);
 }
 #endif
 
-#endif  /* __CAPTURE_DIAG_H__ */
+#endif  /* CAPTURE_DIAG_H */

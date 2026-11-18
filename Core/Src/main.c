@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "dma.h"
 #include "usart.h"
 #include "tim.h"
@@ -29,6 +30,7 @@
 #include <stdbool.h>
 #include "app.h"
 #include "format.h"
+#include "stm_battery_drv.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,8 +61,14 @@ static volatile bool need_rearm = false;
 static uint16_t rearm_retries = 0;
 static const uint16_t max_rearm_retries = 100;
 static const char * const uart_rearm_stuck = "UART DMA rearm stuck\n";
-static volatile bool send_telemetry = false;
 static uint32_t uart_silence_start = 0;
+static uint32_t telemetry_tx_start = 0;
+static uint32_t battery_check_start = 0;
+static const battery_t battery = {
+    .get_vbat_raw = stm_bat_drv_get_vbat_raw,
+    .get_vdda = stm_bat_drv_get_vdda,
+};
+
 
 /* USER CODE END PV */
 
@@ -104,7 +112,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM6)
 	{
-		send_telemetry = true;
 		app_do_control_action();
 	}
 
@@ -161,6 +168,7 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
@@ -169,7 +177,12 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim6); // PID timer
 
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_1); // input capture
+
   HAL_TIM_Base_Start_IT(&htim3); // period elapsed
+
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+
+  stm_bat_drv_init(&hadc1, ADC_CHANNEL_VREFINT, ADC_CHANNEL_7);
 
   app_init();
 
@@ -198,12 +211,19 @@ int main(void)
 		uart_silence_start = now;
 	}
 
-	if (send_telemetry && hlpuart1.gState == HAL_UART_STATE_READY)
+	if ((now - telemetry_tx_start >= TELEMETRY_INTERVAL_MS) && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
-		send_telemetry = false;
 		uint16_t telemetry_len = app_get_telemetry(telemetry_buf, now);
 		if (telemetry_len > 0)
 			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)telemetry_buf, (uint16_t)telemetry_len);
+
+		telemetry_tx_start = now;
+	}
+
+	if (now - battery_check_start >= BATTERY_CHECK_INTERVAL_MS)
+	{
+		app_calc_v_bat(&battery);
+		battery_check_start = now;
 	}
 
 	if (need_rearm)

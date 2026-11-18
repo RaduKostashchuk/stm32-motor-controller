@@ -100,6 +100,16 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
+	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->v_bat, &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
 	if (!try_copy_str("\n", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
 		return 0;
 

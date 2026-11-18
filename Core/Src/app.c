@@ -342,3 +342,8 @@ void app_do_silence_action()
 	state.app_desired_rpm = 0;
 }
 
+void app_calc_v_bat(const battery_t *b)
+{
+	state.v_bat = battery_calc_v(b);
+}
+
