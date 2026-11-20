@@ -3,8 +3,8 @@
 #include "capture_diag.h"
 #include "format.h"
 #include "critical.h"
+#include "app.h"
 
-#define DELTA_TIME_SEC 0.01f // TIM6 configured for 100Hz
 #define MAX_RPM 95
 #define MAX_DELTA_POS ((int32_t)(MAX_RPM * TICKS_PER_REV / 60.0f * DELTA_TIME_SEC * 3))
 #define T_METHOD_TIMEOUT_MS 100

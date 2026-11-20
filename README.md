@@ -1,99 +1,102 @@
 ![Tests](https://github.com/RaduKostashchuk/stm32-motor-controller/actions/workflows/test.yml/badge.svg)
 
-## 1. Обзор
+## 1. Overview
 
-Система управления скоростью двигателя постоянного тока с энкодером. Реализована на STM32 (см. ниже раздел Hardware).
-Портирование [motor-control-ff-pid](https://github.com/RaduKostashchuk/motor-control-ff-pid) с Arduino Uno.
+Control system for DC motor with encoder using T-method. Implemented at STM32 (look at Hardware part).
+Porting of [motor-control-ff-pid](https://github.com/RaduKostashchuk/motor-control-ff-pid) from Arduino Uno.
 
-Состав:
-- Feed-forward + PID регулятор
-- Телеметрию через Serial в CSV
-- Python-скрипт для сбора и визуализации
+Structure:
+- Feed-forward + PID controller
+- Battery voltage monitoring
+- Telemetry over UART in CSV format
+- Python-script for gathering and visualization
 
-Стек:
+Stack:
 - C
 - STM32CubeIDE
 - HAL
 
 ---
 
-## 2. Архитектура
+## 2. Architecture
 
-**Разделение на слои:**
+**Layers:**
 
 ```
 ┌─────────────────────────────────────┐
-│  Application                        │  ← оркестратор остальных слоев
+│  Application                        │  ← orchestration
 ├─────────────────────────────────────┤
-│  Serial Commands (Reader + Parser)  │  ← команды от PC: MOTOR, STOP, MODE
+│  Serial Commands (Reader + Parser)  │  ← command from PC: MOTOR, STOP, MODE
 ├─────────────────────────────────────┤
-│  Controller (FF + PID)              │  ← управление скоростью
+│  Controller (FF + PID)              │  ← velocity control
 ├─────────────────────────────────────┤
-│  Estimator (RPM from encoder)       │  ← оценка скорости
+│  Estimator (RPM from encoder)       │  ← velocity estimation
 ├─────────────────────────────────────┤
-│  Hardware (Encoder, Motor, Driver)  │  ← физический уровень
+│  Hardware (Encoder, Motor, Driver)  │  ← physical layer
 └─────────────────────────────────────┘
 ```
 
-**Ключевые архитектурные решения:**
-- **TIM encoder mode** - 4х квадратурный режим опроса энкодеров.
-- **UART reader FSM** — Idle / Reading / Discarding - для поддержки посимвольной и батч отправки команд.
-- **Аппаратный таймер для PID** — модули controller и estimator запускаются в ISR с частотой 20 Гц.
-- **UART DMA RX TX** - разгрузка CPU.
+**Key points:**
+- **TIM encoder mode** - 2х quadrature encoder mode
+- **UART reader FSM** — Idle / Reading / Discarding - for supporting command batching and symbol by symbol command transmission
+- **Harware PID timer** — controller and estimator modules run at 100 Hz
+- **UART DMA RX TX** - CPU offload
 
-Как и в исходном проекте Arduino используется М режим опроса энкодера, но частота опроса увеличена с 10 до 20 Гц.
-Увеличение частоты опроса энкодера позволило уменьшить квантование измерения скорости в два раза, до 0.6 RPM.
-Поскольку мотор низкооборотистый (10-95 RPM), дальнейшее увеличение частоты опроса энкодера нецелесообразно из-за того, 
-что увеличится относительная погрешность измерения на малых оборотах.
+TIM2 (2x encoder) generates TRGO on each A-edge. TIM3 in slave reset mode resets on TRGO and captures the previous counter value in CCR1. 
+The captured value is the time between consecutive encoder edges (1 µs resolution). Sliding average over 22 edges (one full quadrature cycle) cancels phase error and disc eccentricity harmonics, giving residual ±0.3% RPM. 
+Controller runs at 100 Hz independent of estimator rate.
 
 ---
 
-## 3. Оборудование
-| Компонент | Модель | Назначение |
+## 3. Hardware
+| Unit | Model | Purpose |
 |---|---|---|
-| MCU | NUCLEO-G474RE | Управление |
-| Motor | JGA25-370B (12V, с редуктором и энкодером) | Привод |
-| Driver | TB6612-V2 (dual H-bridge, 3.2A) | Управление мотором |
-| Encoder | Встроенный, 1980 ticks/rev | Обратная связь |
+| MCU | NUCLEO-G474RE | Control |
+| Motor | JGA25-370B (12V, with gear (45:1, rpm range: 5 - 95) and encoder) | Drive |
+| Driver | TB6612-V2 (dual H-bridge, 3.2A) | Motor control |
+| Encoder | Embedded, 1980 ticks/rev | Motor feedback |
+| Voltage divider | Custom | Voltage monitoring |
 
-**Схема подключения:**
+**Connection layout:**
 - Encoder channel A - STM PA0
 - Encoder channel B - STM PA1
 - Driver PWM - STM PC0
 - Driver direction 1 - STM PA5
 - Driver direction 2 - STM PA7
-- Питание мотора и платы (J5 на E5V) обеспечивается сборкой из 3х аккумуляторов 18650 через драйвер. Сборка балансируется BMS HXYP-TY-T20.
-- Телеметрия и команды передаются через micro usb CN1
+- Voltage divider output - STM PC1
+- Power supply for motor and MCU board (J5 at E5V) provided by 3S 18650 assembly via HXYP-TY-T20 BMS.
+- Commands and telemetry exchange goes via CN1 micro Usb connector of MCU board.
 
-**Таймеры**
-- TIM1: CH1, PSC 32, ARR 255 - PWM сигнал для мотора (частота PWM 20КГц)
-- TIM2: CH1, CH2, encoder mode - сигналы от энкодера
-- TIM6: PSC 1699, ARR 4999 - задание частоты запуска PID регулятора (20Гц)
+**Timers**
+- TIM1: CH1, PSC 32, ARR 255 - PWM for motor power (PWM frequency: 20 KHz; PWM range: 0 - 255).
+- TIM2: CH1, CH2, 2x encoder mode - master timer for velocity estimation.
+- TIM3: PSC 99, ARR 65535 - slave reset mode with input capture at ch1. Slave timer for t-method speed estimation.
+- TIM6: PSC: 1699, ARR: 4999 - harвware timer for PID controller execution
 
 
-![Скриншот проекта](docs/project.png)
+![Project layout](docs/project.png)
 
 ---
 
 ## 4. Firmware
 
 **Модули:**
-- `main.c` - конфигурация таймеров, DMA, ISR, колбэков, запуск модуля application в while(1).
-- `Reader` — запускается по прерыванию DMA для чтения rx буфера до конца или символа конца сообщения.
-- `Parser` — разбор команд в `Command` struct.
-- `Encoder` — подсчёт тиков через чтение регистра аппаратного таймера.
-- `Motor` — управление PWM и направлением.
-- `Estimator` — расчёт RPM из дельты тиков.
-- `Controller` — FF + PID.
-- `Application` — оркестрация всех модулей.
+- `main.c` - timers, callbacks, DMA and periodical execution configuration, application initialization.
+- `Reader` — executes by DMA interrupt for rx buffer reading until end or end symbol.
+- `Parser` — command parser into `Command` struct.
+- `Encoder` — tick counter by reading hardware timer register.
+- `Motor` — PWM and duration control.
+- `Estimator` — velocity and position calculation.
+- `Controller` — Feed forward + PI.
+- `Application` — orchestration.
 
-Все модули, кроме оркестратора, независимы друг от друга и HAL.
+All modules are independent from hardware.
 
 ---
 
-## 5. Тестирование
+## 5. Testing
 
-Модульные тесты для запуска на хосте (Unity): **~109**.
+Unit tests for host execution (Unity): **~109**.
 
 | Module | Tests | Coverage |
 |---|---|---|
@@ -103,56 +106,56 @@
 | estimator | 13 | Bidirectional, glitch rejection, boundary, recovery |
 | controller | 13 | P/I/D, anti-windup (both directions), deadband, saturation |
 
-Запуск: `cd test && make test`
+Run: `cd test && make test`
 
 ---
 
-## 6. Дизайн управления
+## 6. Control design
 
 **Feed-forward:**
 ```
 uff = 2.64 × targetRpm − 1
 ```
-Коэффициенты сняты **экспериментально**: FF подобран так, чтобы **слегка недорегулировать** (~1 RPM). Тогда `I` всегда работает «в плюс» и **не дрейфует**.
+PID coefficients are selected experimentally: FF is adjusted to be slightly under-regulated (~1 RPM). This ensures that the 'I' always operates positive and does not drift.
 
 **PID:**
-- `kp = 0.25` — подобран экспериментально, сравнением overshoot, undershoot, settle time на разных значениях.
-- `ki = 2.0` — подобран экспериментально, так чтобы не усиливать overshoot при step test и не дрейфовать на малых уставках.
-- `kd = 0` — **обоснованно отключён** (см. Ограничения).
+- `kp = 0.25` — selected experimentally, by comparing overshoot, undershoot, and settle time at different values.
+- `ki = 2.0` — selected experimentally, so as not to increase overshoot during step testing and not to drift at low settings.
+- `kd = 0` — **disabled**.
 
-**Anti-windup:** не интегрировать, если выход в saturation и ошибка в ту же сторону.
+**Anti-windup:** do not integrate if the output is in saturation and the error is in the same direction.
 
-**Deadband:** `|error| < 0.3` → не интегрировать (шум энкодера не накапливается).
+**Deadband:** `|error| < 0.3` → do not integrate in encoder error range.
 
-**Discharge:** `2` → быстрее разряжать интеграл при `|error| < 0` и `|error| > 0.3`.
+**Discharge:** `2` → faster integral discharging when `|error| < 0` и `|error| > 0.3`.
 
 ---
 
-## 7. Телеметрия и анализ
+## 7. Telemetry and analysis
 
-**Прошивка** шлёт CSV-строки:
+**Firmware** sends CSV-strings:
 ```
-T:<millis>,desired,current,error,p,i,d,uff,pwm
+T:<millis>,desired,current,error,p,i,d,uff,pwm,vbat
 ```
 
 **Python-скрипт** (`tools/telemetry_reader.py`):
-- Открывает Serial на 115200.
-- Ждёт 2 сек стабилизации.
-- Отправляет `MODE AUTO`, `MOTOR 1 <rpm>`.
-- Пишет телеметрию в CSV.
-- В конце — `STOP`.
+- Opens Serial at 115200.
+- Waits 2 seconds for stabilization.
+- Sends `MODE AUTO`, `MOTOR 1 <rpm>`.
+- Writes telemetry to CSV file.
+- Sends — `STOP`.
 
-**Графики** (`tools/plot_telemetry.py`):
-- Скорость: desired / current.
-- Компоненты: p, i, d, uff, pwm.
+**Graphs** (`tools/plot_telemetry.py`):
+- Speed: desired / current.
+- Metrics: p, i, d, uff, pwm.
 
 ---
 
-## 8. Результаты
+## 8. Results
 
 ### Step response на 20, 50, 80 RPM
 
-| Уставка | Overshoot | Undershoot | Settle time |
+| Setpoint | Overshoot | Undershoot | Settle time |
 |---|---|---|---|
 | **20** | 0% | 0% | ~900 мс |
 | **50** | 0% | 0% | ~650 мс |
@@ -162,9 +165,9 @@ T:<millis>,desired,current,error,p,i,d,uff,pwm
 ![Step test 50](docs/step_response_50.png)
 ![Step test 80](docs/step_response_80.png)
 
-### Сравнение с Arduino
+### M-method comparison
 
-| Метрика | Arduino | STM32 | Улучшение |
+| Metric | Arduino | STM32 | Result |
 |---|---|---|---|
 | Encoder resolution | 495 ticks/rev, 1× | 1980 ticks/rev, 4× | 4× |
 | Sample rate | 10 Hz | 20 Hz | 2× |
@@ -175,7 +178,7 @@ T:<millis>,desired,current,error,p,i,d,uff,pwm
 
 ### Disturbance rejection
 
-Мотор нагружался рукой на 3–5 секунде. Скорость падала до 45 RPM, `i` рос до 50, после снятия нагрузки — **восстановление за ~1,5 сек**.
+The motor was loaded manually for 3-5 seconds. The speed dropped to 40 RPM, the i increased to 50, and after the load was removed, recovery took ~1.5 seconds.
 
 ![Disturbance rejection](docs/dist_rej.png)
 
@@ -185,7 +188,33 @@ T:<millis>,desired,current,error,p,i,d,uff,pwm
 
 ---
 
-## 9. Ограничения
+## 9. Limitations
 
-Поскольку частота опроса энкодера увеличена всего в два раза, внедрение D-составляющей регулятора отложено на следующий этап — когда будет использован T-метод опроса энкодера.
+### Cogging and encoder harmonics
+
+Two harmonics present in instantaneous RPM:
+- **Period 24 edges** — A/B phase mismatch (duty ≠ 50/50).
+- **Period 22 edges** — encoder disc eccentricity (confirmed by hand-rotation test).
+
+Sliding average over 22 edges cancels both algebraically, residual ±0.3% RPM.
+
+### D-term not viable on velocity control
+
+Tested kd=0.3 with T-method avg-22. Residual RPM noise ±0.3 amplified by 1/Δt = 100× 
+saturates D, causing ±13% oscillation under load. Heavier filtering (α=0.05, tau=200 ms) 
+— too slow to damp 100 ms overshoot. D reserved for future position control, 
+where position is not quantized by RPM resolution.
+
+### Disturbance overshoot inherent to PI
+
+27% overshoot on load release (both kp=0.25 and kp=0.5). I-term accumulates 46–64 
+units to hold speed under load, then discharges over ~2s after release. Cannot be 
+eliminated without D (not viable, see above) or feedforward of external load 
+(not measurable). Acceptable for mobile robot with slowly varying loads.
+
+### Voltage dependency
+
+FF calibrated at 12.0V. At 11.9V battery — settle 5× slower (1300 ms vs 250 ms) 
+because I-term compensates the voltage deficit. Voltage-compensated FF planned: 
+`uff × (12.0 / V_measured)`. ADC voltage sensing already implemented (vbat in telemetry).
 

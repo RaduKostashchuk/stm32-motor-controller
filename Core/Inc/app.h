@@ -17,6 +17,7 @@ extern "C" {
 #define UART_MAX_SILENCE_DURATION_MS 60000
 #define TELEMETRY_INTERVAL_MS 50
 #define BATTERY_CHECK_INTERVAL_MS 500
+#define DELTA_TIME_SEC 0.01f // controller and estimator freq
 
 typedef enum
 {

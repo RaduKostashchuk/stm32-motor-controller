@@ -6,7 +6,7 @@
 #define TICKS_PER_REV 990
 #define CPU_FREQ 170000000
 #define PSC 99 // 16-bit counter doesnt overflow in rpm range 5 - 95
-#define RPMT_T_COEF CPU_FREQ / ((PSC + 1) * TICKS_PER_REV) // 1717
+#define RPMT_T_COEF (float)CPU_FREQ / (float)((PSC + 1) * TICKS_PER_REV) // 1717
 #define UPPER_CYCLES_BOUND 60000 // ~2 Rpm
 #define AVG_WINDOW 22
 
