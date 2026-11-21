@@ -1,9 +1,15 @@
 import csv
 import matplotlib.pyplot as plt
+import os
+from pathlib import Path
 
 # ==== НАСТРОЙКИ ====
-INPUT_FILE = 'out/telemetry.csv'
-TARGET_RPM = 50          # уставка, которую подавали
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_DIR = BASE_DIR / "out"
+INPUT_FILE = INPUT_DIR / "telemetry.csv"
+OUTPUT_DIR = BASE_DIR / "images"
+OUTPUT_FILE = OUTPUT_DIR / "telemetry.png"
+TARGET_RPM = 80          # уставка, которую подавали
 
 # ==== ЧТЕНИЕ CSV ====
 t = []
@@ -65,6 +71,6 @@ ax2.grid(True, alpha=0.3)
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig('images/step_response.png', dpi=100)
-print("График сохранён в step_response.png")
+plt.savefig(OUTPUT_FILE, dpi=100)
+print(f"График сохранён в {OUTPUT_FILE}")
 plt.show()
