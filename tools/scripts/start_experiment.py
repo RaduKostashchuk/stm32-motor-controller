@@ -1,12 +1,19 @@
 import serial
 import time
+import os
+from pathlib import Path
 
 # ==== НАСТРОЙКИ ====
 PORT = 'COM7'
 BAUD = 115200
-DURATION = 20          # сколько секунд писать
-OUTPUT_FILE = 'out/telemetry.csv'
+DURATION = 15          # сколько секунд писать
 TARGET_RPM = 50
+
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "out"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+OUTPUT_FILE = OUTPUT_DIR / "telemetry.csv"
 
 # ==== ОТКРЫТИЕ ПОРТА ====
 ser = serial.Serial(PORT, BAUD, timeout=1)
