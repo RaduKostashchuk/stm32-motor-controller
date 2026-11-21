@@ -37,7 +37,7 @@ void calcI()
   if (fabsf(error) <= I_DEADBAND)
 	return;
 
-  if (error < 0)
+  if (fabsf(target_rpm) - fabsf(current_rpm) < 0)
 	  i_sum += current_i * i_discharge;
   else
 	  i_sum += current_i;
