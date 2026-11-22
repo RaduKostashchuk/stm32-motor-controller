@@ -39,7 +39,7 @@ Stack:
 **Key points:**
 - **TIM encoder mode** - 2х quadrature encoder mode
 - **UART reader FSM** — Idle / Reading / Discarding - for supporting command batching and symbol by symbol command transmission
-- **Harware PID timer** — controller and estimator modules run at 100 Hz
+- **Hardware PID timer** — controller and estimator modules run at 100 Hz
 - **UART DMA RX TX** - CPU offload
 
 TIM2 (2x encoder) generates TRGO on each A-edge. TIM3 in slave reset mode resets on TRGO and captures the previous counter value in CCR1. 
@@ -71,7 +71,7 @@ Controller runs at 100 Hz independent of estimator rate.
 - TIM1: CH1, PSC 32, ARR 255 - PWM for motor power (PWM frequency: 20 KHz; PWM range: 0 - 255).
 - TIM2: CH1, CH2, 2x encoder mode - master timer for velocity estimation.
 - TIM3: PSC 99, ARR 65535 - slave reset mode with input capture at ch1. Slave timer for t-method speed estimation.
-- TIM6: PSC: 1699, ARR: 4999 - harвware timer for PID controller execution
+- TIM6: PSC: 1699, ARR: 4999 - hardware timer for PID controller execution
 
 
 ![Project layout](docs/project.png)
@@ -80,12 +80,12 @@ Controller runs at 100 Hz independent of estimator rate.
 
 ## 4. Firmware
 
-**Модули:**
+**Modules:**
 - `main.c` - timers, callbacks, DMA and periodical execution configuration, application initialization.
 - `Reader` — executes by DMA interrupt for rx buffer reading until end or end symbol.
 - `Parser` — command parser into `Command` struct.
 - `Encoder` — tick counter by reading hardware timer register.
-- `Motor` — PWM and duration control.
+- `Motor` — PWM and direction control.
 - `Estimator` — velocity and position calculation.
 - `Controller` — Feed forward + PI.
 - `Application` — orchestration.
@@ -93,6 +93,7 @@ Controller runs at 100 Hz independent of estimator rate.
 All modules are independent from hardware.
 
 T-method covered by 10 regression tests: math, glitch rejection, sliding window edge, direction debounce, timeout reset.
+
 ---
 
 ## 5. Testing
@@ -105,7 +106,7 @@ Unit tests for host execution (Unity): **119**.
 | parser | 31 | Valid/invalid commands, long tokens, edge whitespace |
 | reader | 11 | FSM, ring buffer, multi-command, discard, CR/LF |
 | estimator m-method + t-method | 20 | Bidirectional, glitch rejection, boundary, recovery |
-| estimator t-method | 10 | Bidirectional, glitch rejection, boundary, recovery | controller | 11 | P/I/D, anti-windup (both directions), deadband, saturation |
+| controller | 11 | P/I/D, anti-windup (both directions), deadband, saturation |
 
 Run: `cd test && make test`
 
@@ -128,7 +129,7 @@ PID coefficients are selected experimentally: FF is adjusted to be slightly unde
 
 **Deadband:** `|error| < 0.3` → do not integrate in encoder error range.
 
-**Discharge:** `2` → faster integral discharging when `|error| < 0` и `|error| > 0.3`.
+**Discharge:** `2` → faster integral discharging when `|error| < 0` and `|error| > 0.3`.
 
 ---
 
@@ -139,7 +140,7 @@ PID coefficients are selected experimentally: FF is adjusted to be slightly unde
 T:<millis>,desired,current,error,p,i,d,uff,pwm,vbat
 ```
 
-**Python-скрипт** (`tools/telemetry_reader.py`):
+**Python-script** (`tools/telemetry_reader.py`):
 - Opens Serial at 115200.
 - Waits 2 seconds for stabilization.
 - Sends `MODE AUTO`, `MOTOR 1 <rpm>`.
@@ -154,38 +155,9 @@ T:<millis>,desired,current,error,p,i,d,uff,pwm,vbat
 
 ## 8. Results
 
-### Step response на 20, 50, 80 RPM
+### Step response at 20, 50, 80 RPM
 
-| Setpoint | Overshoot | Undershoot | Settle time |
-|---|---|---|---|
-| **20** | 0% | 0% | ~900 мс |
-| **50** | 0% | 0% | ~650 мс |
-| **80** | +2% | 0% | ~550 мс |
-
-![Step test 20](docs/step_response_20.png)
-![Step test 50](docs/step_response_50.png)
-![Step test 80](docs/step_response_80.png)
-
-### M-method comparison
-
-| Metric | Arduino | STM32 | Result |
-|---|---|---|---|
-| Encoder resolution | 495 ticks/rev, 1× | 1980 ticks/rev, 4× | 4× |
-| Sample rate | 10 Hz | 20 Hz | 2× |
-| Overshoot @ 50 RPM | ~24% | 0% | ✨ |
-| Settle time @ 50 RPM | ~700 мс | ~650 мс | ≈ |
-| Steady-state noise | ±0.9 RPM | ±0.3 RPM | 3× |
-
-
-### Disturbance rejection
-
-The motor was loaded manually for 3-5 seconds. The speed dropped to 40 RPM, the i increased to 50, and after the load was removed, recovery took ~1.5 seconds.
-
-![Disturbance rejection](docs/dist_rej.png)
-
-**Наблюдение:** увеличение разрешения энкодера в 4 раза по сравнению с Arduino проектом позволило увеличить частоту опроса энкодера в два раза
-при сохранении приемлемой погрешности измерения на малых оборотах двигателя.
-Из графиков видно что уменьшился overshoot и величина колебаний вблизи целевого значения скорости.
+Deferred until PSU arrives.
 
 ---
 
@@ -194,7 +166,7 @@ The motor was loaded manually for 3-5 seconds. The speed dropped to 40 RPM, the 
 ### Cogging and encoder harmonics
 
 Two harmonics present in instantaneous RPM:
-- **Period 24 edges** — A/B phase mismatch (duty ≠ 50/50).
+- **Period 2 edges** — A/B phase mismatch (duty ≠ 50/50).
 - **Period 22 edges** — encoder disc eccentricity (confirmed by hand-rotation test).
 
 Sliding average over 22 edges cancels both algebraically, residual ±0.3% RPM.
