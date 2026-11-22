@@ -9,6 +9,7 @@ build/
 *.hex
 *.map
 *.list
+test_runner.exe
 
 # IDE
 .settings/

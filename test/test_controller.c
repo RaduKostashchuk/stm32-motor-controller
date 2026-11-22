@@ -39,20 +39,24 @@ TEST(Controller, test_proportional_positive)
 {
 	controller_set_target_rpm(10.0f);
 	controller_set_current_rpm(0.0f);
+	float error = 10.0f;
+	float expected = KP * error;
 	controller_get_control_value();
 	drive_state state;
 	controller_fill_drive_state(&state);
-	TEST_ASSERT_TRUE(state.cont_p > 0);
+	TEST_ASSERT_EQUAL_FLOAT(expected, state.cont_p);
 }
 
 TEST(Controller, test_proportional_negative)
 {
 	controller_set_target_rpm(-10.0f);
 	controller_set_current_rpm(0.0f);
+	float error = -10.0f;
+	float expected = KP * error;
 	controller_get_control_value();
 	drive_state state;
 	controller_fill_drive_state(&state);
-	TEST_ASSERT_TRUE(state.cont_p < 0);
+	TEST_ASSERT_EQUAL_FLOAT(expected, state.cont_p);
 }
 
 TEST(Controller, test_saturation_positive)
@@ -136,35 +140,37 @@ TEST(Controller, test_steady_state_with_accumulated_i)
 TEST(Controller, test_i_normal_accumulation)
 {
 	controller_set_target_rpm(80.0f);
-	controller_set_current_rpm(50.0f);
-	controller_get_control_value();
-	drive_state state;
-	controller_fill_drive_state(&state);
-	float i_prev = state.cont_i;
-	TEST_ASSERT_GREATER_THAN_FLOAT(0.0f, i_prev);
+	controller_set_current_rpm(70.0f);
 
-	for (int i = 0; i < 10; i++)
+	float i_expected = 0.0f;
+	for (int8_t i = 0; i < 10; i++)
+		i_expected += KI * 10.0f * DELTA_TIME_SEC;
+
+	for (int8_t i = 0; i < 10; i++)
 		controller_get_control_value();
 
+	drive_state state;
 	controller_fill_drive_state(&state);
-	TEST_ASSERT_GREATER_THAN_FLOAT(i_prev, state.cont_i);
+
+	TEST_ASSERT_EQUAL_FLOAT(i_expected, state.cont_i);
 }
 
 TEST(Controller, test_i_normal_negative_accumulation)
 {
 	controller_set_target_rpm(-80.0f);
-	controller_set_current_rpm(-50.0f);
-	controller_get_control_value();
-	drive_state state;
-	controller_fill_drive_state(&state);
-	float i_prev = state.cont_i;
-	TEST_ASSERT_LESS_THAN_FLOAT(0.0f, i_prev);
+	controller_set_current_rpm(-70.0f);
 
-	for (int i = 0; i < 10; i++)
+	float i_expected = 0.0f;
+	for (int8_t i = 0; i < 10; i++)
+		i_expected += KI * -10.0f * DELTA_TIME_SEC;
+
+	for (int8_t i = 0; i < 10; i++)
 		controller_get_control_value();
 
+	drive_state state;
 	controller_fill_drive_state(&state);
-	TEST_ASSERT_LESS_THAN_FLOAT(i_prev, state.cont_i);
+
+	TEST_ASSERT_EQUAL_FLOAT(i_expected, state.cont_i);
 }
 
 TEST_GROUP_RUNNER(Controller)

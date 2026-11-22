@@ -28,10 +28,10 @@ TEST_SRCS = main_test.c test_reader.c test_parser.c test_format.c test_estimator
 # Исходники тестируемых модулей (только не зависящие от HAL)
 APP_SRCS = ../Core/Src/reader.c ../Core/Src/parser.c ../Core/Src/format.c ../Core/Src/estimator.c ../Core/Src/controller.c
 
-# MOCK_SRCS = mocks/hal_mock.c
+MOCK_SRCS = mocks/critical_mock.c
 
 # 🔹 Объединяем все исходники: тесты, приложение, Unity (включая fixture)
-SRCS = $(TEST_SRCS) $(APP_SRCS) $(UNITY_SRC) # $(MOCK_SRCS)
+SRCS = $(TEST_SRCS) $(APP_SRCS) $(UNITY_SRC) $(MOCK_SRCS)
 OBJS = $(SRCS:.c=.o)
 TARGET = test_runner.exe
 

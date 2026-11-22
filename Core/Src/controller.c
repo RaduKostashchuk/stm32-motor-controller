@@ -1,18 +1,16 @@
 #include <stdbool.h>
 #include <math.h>
 #include "app.h"
+#include "controller.h"
 
 #define MIN_CV -255
 #define MAX_CV 255
-#define I_D_DEADBAND 0.3f
+#define I_DEADBAND 0.3f
+#define D_DEADBAND 3.0f
 #define MAX_RAW_DERIVATIVE 30 //d clamp
-#define DELTA_TIME_SEC 0.05f // TIM4 configured for 20Hz
 
 typedef uint32_t (*get_millis_from_start)(void);
 
-static const float kp = 0.25f;
-static const float ki = 2.0f;
-static const float kd = 0.0f;
 static const float ff_coef1 = 2.64f;
 static const float ff_coef2 = -1.0f;
 static const float i_discharge = 2.0f;
@@ -31,39 +29,39 @@ static int16_t control_value;
 void calcI()
 {
   float current_i = error * DELTA_TIME_SEC;
-  float rawOutput = uff + p + (i_sum + current_i) * ki + d;
+  float rawOutput = uff + p + (i_sum + current_i) * KI + d;
 
   if ((rawOutput > MAX_CV && error > 0) || (rawOutput < MIN_CV && error < 0)) //anti windup
 	return;
 
-  if (fabsf(error) <= I_D_DEADBAND)
+  if (fabsf(error) <= I_DEADBAND)
 	return;
 
-  if (error < 0)
+  if (fabsf(target_rpm) - fabsf(current_rpm) < 0)
 	  i_sum += current_i * i_discharge;
   else
 	  i_sum += current_i;
 
-  i = i_sum * ki;
+  i = i_sum * KI;
 }
 
 void calcD()
 {
-  if (kd == 0)
+  if (KD == 0)
   {
 	d = 0;
 	previous_rpm = current_rpm;
 	return;
   }
 
-  if (fabsf(error) <= I_D_DEADBAND)
+  if (fabsf(error) <= D_DEADBAND)
   {
 	d = 0;
 	previous_rpm = current_rpm;
 	return;
   }
 
-  raw_derivative = (previous_rpm - current_rpm) / DELTA_TIME_SEC;
+  raw_derivative = (current_rpm - previous_rpm) / DELTA_TIME_SEC;
 
   // d clamping
   if (raw_derivative > MAX_RAW_DERIVATIVE)
@@ -71,7 +69,7 @@ void calcD()
   else if (raw_derivative < -MAX_RAW_DERIVATIVE)
 	  raw_derivative = -MAX_RAW_DERIVATIVE;
 
-  d = kd * raw_derivative;
+  d = KD * raw_derivative;
   previous_rpm = current_rpm;
 }
 
@@ -125,7 +123,7 @@ int16_t controller_get_control_value()
   }
 
   error = target_rpm - current_rpm;
-  p = error * kp;
+  p = error * KP;
   uff = ff_coef1 * target_rpm + ff_coef2;
 
   calcD();

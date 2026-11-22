@@ -1,5 +1,9 @@
 import csv
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
+=======
+import os
+>>>>>>> t_method
 from pathlib import Path
 
 # ==== НАСТРОЙКИ ====
@@ -8,7 +12,11 @@ INPUT_DIR = BASE_DIR / "out"
 INPUT_FILE = INPUT_DIR / "telemetry.csv"
 OUTPUT_DIR = BASE_DIR / "images"
 OUTPUT_FILE = OUTPUT_DIR / "telemetry.png"
+<<<<<<< HEAD
 TARGET_RPM = 50          # уставка, которую подавали
+=======
+TARGET_RPM = 80          # уставка, которую подавали
+>>>>>>> t_method
 
 # ==== ЧТЕНИЕ CSV ====
 t = []

@@ -1,13 +1,25 @@
 import serial
 import time
+<<<<<<< HEAD
 import os
+=======
+>>>>>>> t_method
 from pathlib import Path
 
 # ==== НАСТРОЙКИ ====
 PORT = 'COM7'
 BAUD = 115200
 DURATION = 15          # сколько секунд писать
+<<<<<<< HEAD
 TARGET_RPM = 50
+=======
+TARGET_RPM = 80
+
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "out"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_FILE = OUTPUT_DIR / "telemetry.csv"
+>>>>>>> t_method
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "out"
@@ -35,7 +47,7 @@ skipped = 0
 
 with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
     # Заголовок
-    f.write("t_ms,desired,current,error,p,i,d,uff,pwm\n")
+    f.write("t_ms,desired,current,error,p,i,d,uff,pwm,vbat\n")
     
     while time.time() - start < DURATION:
         line = ser.readline().decode('utf-8', errors='ignore').strip()
@@ -51,7 +63,7 @@ with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         except ValueError:
             skipped +=1
             continue
-        if len(values) != 9:
+        if len(values) != 10:
             skipped += 1
             continue
         f.write(f"{line[2:]}\n")

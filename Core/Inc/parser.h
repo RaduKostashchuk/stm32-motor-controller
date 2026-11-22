@@ -1,8 +1,8 @@
-#ifndef INC_PARSER_H_
-#define INC_PARSER_H_
+#ifndef INC_PARSER_H
+#define INC_PARSER_H
 
 #include "app.h"
 
 Command parse(const char *raw_cmd);
 
-#endif /* INC_READER_H_ */
+#endif /* INC_READER_H */

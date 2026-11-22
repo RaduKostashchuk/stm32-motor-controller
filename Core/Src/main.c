@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "dma.h"
 #include "usart.h"
 #include "tim.h"
@@ -28,7 +29,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include "app.h"
-#include "reader.h"
+#include "format.h"
+#include "stm_battery_drv.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,14 +55,19 @@ static char read_buf[RX_BUF_SIZE];
 static char telemetry_buf[TELEMETRY_BUF_SIZE];
 static char app_reply_buf[APP_REPLY_BUF_SIZE];
 static volatile uint16_t received_len = 0;
-static volatile bool rxDataReady = false;
+static volatile bool rx_data_ready = false;
 static volatile bool uart_hdmarx_locked = false;
 static volatile bool need_rearm = false;
 static uint16_t rearm_retries = 0;
 static const uint16_t max_rearm_retries = 100;
 static const char * const uart_rearm_stuck = "UART DMA rearm stuck\n";
-static volatile bool send_telemetry = false;
-static uint32_t uartSilenceStart = 0;
+static uint32_t uart_silence_start = 0;
+static uint32_t telemetry_tx_start = 0;
+static uint32_t battery_check_start = 0;
+static const battery_t battery = {
+    .get_vbat_raw = stm_bat_drv_get_vbat_raw,
+    .get_vdda = stm_bat_drv_get_vdda,
+};
 
 /* USER CODE END PV */
 
@@ -71,6 +78,7 @@ static void unlock_uart_hdma();
 static void init_debugmcu();
 static void rearm_uart_dma_rx();
 void debug_print_str(const char *msg);
+void debug_print(char *buf, size_t len);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -96,15 +104,30 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 	memcpy(read_buf, dma_buf, Size);
 	received_len = Size;
-	rxDataReady = true;
+	rx_data_ready = true;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM6)
 	{
-		send_telemetry = true;
 		app_do_control_action();
+	}
+
+	if (htim->Instance == TIM3)
+	{
+		if (__HAL_TIM_GET_FLAG(htim, TIM_FLAG_TRIGGER) == SET)
+			__HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_TRIGGER);
+		else
+			app_try_reset_t_method(HAL_GetTick());
+	}
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM3)
+	{
+		app_run_t_method(htim->Instance->CCR1, HAL_GetTick());
 	}
 }
 
@@ -143,6 +166,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM6_Init();
   MX_TIM1_Init();
+  MX_TIM3_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   init_debugmcu();
 
@@ -152,6 +177,16 @@ int main(void)
 
   HAL_TIM_Base_Start_IT(&htim6); // PID timer
 
+  HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_1); // input capture
+
+  HAL_TIM_Base_Start_IT(&htim3); // period elapsed
+
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+
+  stm_bat_drv_init(&hadc1, ADC_CHANNEL_VREFINT, ADC_CHANNEL_7);
+
+  app_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -160,29 +195,36 @@ int main(void)
   {
 	uint32_t now = HAL_GetTick();
 
-	if (rxDataReady && hlpuart1.gState == HAL_UART_STATE_READY)
+	if (rx_data_ready && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
-		rxDataReady = false;
+		rx_data_ready = false;
 		uint16_t reply_len = app_process_command(read_buf, received_len, app_reply_buf);
 		if (reply_len > 0)
 			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)app_reply_buf, reply_len);
 
 		need_rearm = true;
-		uartSilenceStart = now;
+		uart_silence_start = now;
 	}
 
-	if (!rxDataReady && now - uartSilenceStart >= UART_MAX_SILENCE_DURATION_MS)
+	if (!rx_data_ready && now - uart_silence_start >= UART_MAX_SILENCE_DURATION_MS)
 	{
 		app_do_silence_action();
-		uartSilenceStart = now;
+		uart_silence_start = now;
 	}
 
-	if (send_telemetry && hlpuart1.gState == HAL_UART_STATE_READY)
+	if ((now - telemetry_tx_start >= TELEMETRY_INTERVAL_MS) && hlpuart1.gState == HAL_UART_STATE_READY)
 	{
-		send_telemetry = false;
 		uint16_t telemetry_len = app_get_telemetry(telemetry_buf, now);
 		if (telemetry_len > 0)
 			HAL_UART_Transmit_DMA(&hlpuart1, (uint8_t *)telemetry_buf, (uint16_t)telemetry_len);
+
+		telemetry_tx_start = now;
+	}
+
+	if (now - battery_check_start >= BATTERY_CHECK_INTERVAL_MS)
+	{
+		app_calc_v_bat(&battery);
+		battery_check_start = now;
 	}
 
 	if (need_rearm)
@@ -190,6 +232,7 @@ int main(void)
 
 	if (uart_hdmarx_locked)
 		unlock_uart_hdma();
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -247,7 +290,7 @@ void SystemClock_Config(void)
 static void unlock_uart_hdma()
 {
 	uart_hdmarx_locked = false;
-	reader_reset();
+	app_reader_reset();
 	if (HAL_UART_AbortReceive(&hlpuart1) != HAL_OK)
 	{
 	    __HAL_UNLOCK(&hlpuart1);
@@ -301,12 +344,6 @@ static void init_debugmcu()
 	gpio.Speed = GPIO_SPEED_FREQ_HIGH;
 	gpio.Alternate = GPIO_AF0_TRACE;
 	HAL_GPIO_Init(GPIOB, &gpio);
-}
-
-void debug_print_str(const char *msg)
-{
-	while (*msg)
-		ITM_SendChar(*msg++);
 }
 /* USER CODE END 4 */
 
