@@ -92,19 +92,20 @@ Controller runs at 100 Hz independent of estimator rate.
 
 All modules are independent from hardware.
 
+T-method covered by 10 regression tests: math, glitch rejection, sliding window edge, direction debounce, timeout reset.
 ---
 
 ## 5. Testing
 
-Unit tests for host execution (Unity): **~109**.
+Unit tests for host execution (Unity): **119**.
 
 | Module | Tests | Coverage |
 |---|---|---|
-| format | 44 | INT32_MIN, float rounding, NULL guards, buffer overflow |
-| parser | 29 | Valid/invalid commands, long tokens, edge whitespace |
-| reader | 15 | FSM, ring buffer, multi-command, discard, CR/LF |
-| estimator | 13 | Bidirectional, glitch rejection, boundary, recovery |
-| controller | 13 | P/I/D, anti-windup (both directions), deadband, saturation |
+| format | 46 | INT32_MIN, float rounding, NULL guards, buffer overflow |
+| parser | 31 | Valid/invalid commands, long tokens, edge whitespace |
+| reader | 11 | FSM, ring buffer, multi-command, discard, CR/LF |
+| estimator m-method + t-method | 20 | Bidirectional, glitch rejection, boundary, recovery |
+| estimator t-method | 10 | Bidirectional, glitch rejection, boundary, recovery | controller | 11 | P/I/D, anti-windup (both directions), deadband, saturation |
 
 Run: `cd test && make test`
 

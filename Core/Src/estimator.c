@@ -7,27 +7,25 @@
 
 #define MAX_RPM 95
 #define MAX_DELTA_POS ((int32_t)(MAX_RPM * TICKS_PER_REV / 60.0f * DELTA_TIME_SEC * 3))
-#define T_METHOD_TIMEOUT_MS 100
-#define SIGN_STABLE_THRESHOLD 3
 
 static volatile float rpm_m;
 static volatile float rpm_t;
 
 static volatile uint32_t cycle_hist[AVG_WINDOW];
 static volatile uint8_t cycle_ind = 0;
-static volatile uint8_t current_ind = 0;
+static volatile uint8_t actual_avg_win_size = 0;
 static volatile uint32_t sliding_sum = 0;
 static volatile int32_t prev_pos_t = 0;
 static volatile int32_t prev_pos_m = 0;
 static volatile int8_t sign = 1;
 static volatile int8_t sign_candidate = 1;
-static int8_t sign_stable_ind = 0;
+static int8_t sign_stable_ind = 1;
 static volatile uint32_t tick_absense_start = 0;
 
 static void clear_cycle_hist()
 {
 	cycle_ind = 0;
-	current_ind = 0;
+	actual_avg_win_size = 0;
 	rpm_t = 0;
 	sliding_sum = 0;
 	for (uint8_t i = 0; i < AVG_WINDOW; i++)
@@ -41,7 +39,7 @@ void estimator_init(int32_t init_pos)
 	rpm_m = 0;
 	sign = 1;
 	sign_candidate = 1;
-	sign_stable_ind = 0;
+	sign_stable_ind = 1;
 	tick_absense_start = 0;
 	clear_cycle_hist();
 }
@@ -71,24 +69,24 @@ static void debounce_sign(int32_t delta)
 	else if (delta > 0 && sign_candidate < 0)
 	{
 		sign_candidate = 1;
-		sign_stable_ind = 0;
+		sign_stable_ind = 1;
 	}
 	else if (delta < 0 && sign_candidate > 0)
 	{
 		sign_candidate = -1;
-		sign_stable_ind = 0;
+		sign_stable_ind = 1;
 	}
 
 	if (sign_stable_ind >= SIGN_STABLE_THRESHOLD)
 	{
 		sign = sign_candidate;
-		sign_stable_ind = 0;
+		sign_stable_ind = 1;
 	}
 }
 
 void estimator_update_t(uint32_t cpu_cycles, int32_t cur_pos, uint32_t now)
 {
-	if (cpu_cycles >= UPPER_CYCLES_BOUND)
+	if (cpu_cycles >= UPPER_CYCLES_BOUND || cpu_cycles == 0)
 		return;
 
 	tick_absense_start = now;
@@ -101,14 +99,11 @@ void estimator_update_t(uint32_t cpu_cycles, int32_t cur_pos, uint32_t now)
 	cycle_hist[cycle_ind] = cpu_cycles;
 	cycle_ind = (uint8_t)((cycle_ind + 1) % AVG_WINDOW);
 
-	if (current_ind < AVG_WINDOW)
-		current_ind++;
+	if (actual_avg_win_size < AVG_WINDOW)
+		actual_avg_win_size++;
 
-	if (current_ind > 0)
-	{
-		float cycles_per_tick = (float)sliding_sum / current_ind;
-		rpm_t = (float)sign * RPMT_T_COEF * 60.0f / cycles_per_tick;
-	}
+	float cycles_per_tick = (float)sliding_sum / actual_avg_win_size;
+	rpm_t = (float)sign * RPMT_T_COEF * 60.0f / cycles_per_tick;
 
 	exit_critical(primask);
 }

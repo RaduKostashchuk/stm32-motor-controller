@@ -85,45 +85,123 @@ TEST(Estimator, test_boundary_exceeded)
 }
 
 // T-method
-TEST(Estimator, test_less_then_window_size_updates)
+TEST(Estimator, test_normal_rpm_calculation)
+{
+	for (uint8_t i = 0; i < 10; i++)
+		estimator_update_t(10000, 10, 10);
+
+	float cycles_per_tick = 10000.0f;
+    float expected = RPMT_T_COEF * 60.0f / cycles_per_tick;
+	TEST_ASSERT_EQUAL_FLOAT(expected, estimator_get_rpm_t());
+}
+
+TEST(Estimator, test_when_upper_bound_no_rpm_update)
 {
 	estimator_update_t(10000, 10, 10);
-	estimator_update_t(10000, 20, 20);
-	estimator_update_t(10000, 30, 30);
-	float cycles_per_tick = 10000.0f;
-	float expected_speed = RPMT_T_COEF * 60 / cycles_per_tick;
-	TEST_ASSERT_FLOAT_WITHIN(0.1f, expected_speed, estimator_get_rpm_t());
+	float initial_speed = estimator_get_rpm_t();
+	estimator_update_t(UPPER_CYCLES_BOUND, 10, 10);
+	TEST_ASSERT_EQUAL_FLOAT(initial_speed, estimator_get_rpm_t());
 }
 
-TEST(Estimator, test_exact_window_size_updates)
+TEST(Estimator, test_avg_moves_correctly)
 {
 	for (uint8_t i = 0; i < AVG_WINDOW; i++)
 		estimator_update_t(10000, 10 * i, 10 * i);
 
 	float cycles_per_tick = 10000.0f;
-	float expected_speed = RPMT_T_COEF * 60 / cycles_per_tick;
-	TEST_ASSERT_FLOAT_WITHIN(0.1f, expected_speed, estimator_get_rpm_t());
+    float expected = RPMT_T_COEF * 60.0f / cycles_per_tick;
+    TEST_ASSERT_EQUAL_FLOAT(expected, estimator_get_rpm_t());
+
+	for (uint8_t i = 0; i < AVG_WINDOW; i++)
+		estimator_update_t(20000, 10 * i, 10 * i);
+
+	cycles_per_tick = 20000.0f;
+    expected = RPMT_T_COEF * 60.0f / cycles_per_tick;
+    TEST_ASSERT_EQUAL_FLOAT(expected, estimator_get_rpm_t());
 }
 
-TEST(Estimator, test_greater_then_window_size_updates)
-{
-	for (uint8_t i = 0; i < AVG_WINDOW + 20; i++)
-		estimator_update_t(10000, 10 * i, 10 * i);
-
-	float cycles_per_tick = 10000.0f;
-	float expected_speed = RPMT_T_COEF * 60 / cycles_per_tick;
-	TEST_ASSERT_FLOAT_WITHIN(0.1f, expected_speed, estimator_get_rpm_t());
-}
-
-TEST(Estimator, test_ignore_too_high_values)
+TEST(Estimator, test_zero_cpu_cycles)
 {
 	for (uint8_t i = 0; i < AVG_WINDOW; i++)
 		estimator_update_t(10000, 10 * i, 10 * i);
 
-	estimator_update_t(UPPER_CYCLES_BOUND + 1, 1000, 10);
+	float initial_speed = estimator_get_rpm_t();
+	estimator_update_t(0, 1000, 10);
+	TEST_ASSERT_EQUAL_FLOAT(initial_speed, estimator_get_rpm_t());
+}
+
+TEST(Estimator, test_init_clears_rpm)
+{
+	for (uint8_t i = 0; i < AVG_WINDOW; i++)
+		estimator_update_t(10000, 10 * i, 10 * i);
+
+	estimator_init(123);
+	TEST_ASSERT_EQUAL_FLOAT(0.0f, estimator_get_rpm_t());
+}
+
+TEST(Estimator, test_direction_changes_sign)
+{
+	for (uint8_t i = 0; i < 10; i++)
+		estimator_update_t(10000, 10 * i, 10 * i);
+
+	float speed = estimator_get_rpm_t();
+	TEST_ASSERT_TRUE(speed > 0.0f);
+
+	for (uint8_t i = 0; i < 10; i++)
+		estimator_update_t(10000, 10 - i, 10 * i);
+
+	speed = estimator_get_rpm_t();
+	TEST_ASSERT_TRUE(speed < 0.0f);
+}
+
+TEST(Estimator, test_avg_window_border_causes_no_spikes)
+{
 	float cycles_per_tick = 10000.0f;
-	float expected_speed = RPMT_T_COEF * 60 / cycles_per_tick;
-	TEST_ASSERT_FLOAT_WITHIN(0.1f, expected_speed, estimator_get_rpm_t());
+    float expected = RPMT_T_COEF * 60.0f / cycles_per_tick;
+
+	for (uint8_t i = 0; i < AVG_WINDOW + 3; i++)
+	{
+		estimator_update_t(10000, 10 * i, 10 * i);
+		TEST_ASSERT_EQUAL_FLOAT(expected, estimator_get_rpm_t());
+	}
+}
+
+TEST(Estimator, test_sign_debounce)
+{
+	const int32_t init_pos = 100;
+	estimator_update_t(10000, init_pos, 10);
+
+	float speed = estimator_get_rpm_t();
+	TEST_ASSERT_TRUE(speed > 0.0f);
+
+	uint8_t counter = 1;
+	while(counter < SIGN_STABLE_THRESHOLD)
+	{
+		estimator_update_t(10000, init_pos - counter, 10);
+		TEST_ASSERT_TRUE(estimator_get_rpm_t() > 0.0f);
+		counter++;
+	}
+
+	estimator_update_t(10000, init_pos - counter, 10);
+	TEST_ASSERT_TRUE(estimator_get_rpm_t() < 0.0f);
+}
+
+TEST(Estimator, test_timeout_resets_state)
+{
+	uint32_t now = 1000;
+    estimator_update_t(10000, 100, now);
+    estimator_try_reset_t_method(now + T_METHOD_TIMEOUT_MS, 110);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, estimator_get_rpm_t());
+}
+
+TEST(Estimator, test_less_then_timeout_desnt_reset_state)
+{
+	uint32_t now = 1000;
+    estimator_update_t(10000, 100, now);
+	float cycles_per_tick = 10000.0f;
+    float expected = RPMT_T_COEF * 60.0f / cycles_per_tick;
+    estimator_try_reset_t_method(now + T_METHOD_TIMEOUT_MS - 10, 110);
+    TEST_ASSERT_EQUAL_FLOAT(expected, estimator_get_rpm_t());
 }
 
 TEST_GROUP_RUNNER(Estimator)
@@ -140,8 +218,14 @@ TEST_GROUP_RUNNER(Estimator)
 	RUN_TEST_CASE(Estimator, test_boundary_ok);
 	RUN_TEST_CASE(Estimator, test_boundary_exceeded);
 	// T-method
-	RUN_TEST_CASE(Estimator, test_less_then_window_size_updates);
-	RUN_TEST_CASE(Estimator, test_exact_window_size_updates);
-	RUN_TEST_CASE(Estimator, test_greater_then_window_size_updates);
-	RUN_TEST_CASE(Estimator, test_ignore_too_high_values);
+	RUN_TEST_CASE(Estimator, test_normal_rpm_calculation);
+	RUN_TEST_CASE(Estimator, test_when_upper_bound_no_rpm_update);
+	RUN_TEST_CASE(Estimator, test_avg_moves_correctly);
+	RUN_TEST_CASE(Estimator, test_zero_cpu_cycles);
+	RUN_TEST_CASE(Estimator, test_init_clears_rpm);
+	RUN_TEST_CASE(Estimator, test_direction_changes_sign);
+	RUN_TEST_CASE(Estimator, test_avg_window_border_causes_no_spikes);
+	RUN_TEST_CASE(Estimator, test_sign_debounce);
+	RUN_TEST_CASE(Estimator, test_timeout_resets_state);
+	RUN_TEST_CASE(Estimator, test_less_then_timeout_desnt_reset_state);
 }

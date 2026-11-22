@@ -9,6 +9,8 @@
 #define RPMT_T_COEF (float)CPU_FREQ / (float)((PSC + 1) * TICKS_PER_REV) // 1717
 #define UPPER_CYCLES_BOUND 60000 // ~2 Rpm
 #define AVG_WINDOW 22
+#define SIGN_STABLE_THRESHOLD 3
+#define T_METHOD_TIMEOUT_MS 100
 
 void estimator_init(int32_t initialPosition);
 void estimator_run_m(int32_t currentPosition);
