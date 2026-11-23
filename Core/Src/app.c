@@ -1,5 +1,4 @@
 #include "app.h"
-#include "controller.h"
 #include "motor.h"
 #include "reader.h"
 #include "parser.h"
@@ -8,6 +7,7 @@
 #include "telemetry.h"
 #include "format.h"
 #include <string.h>
+#include <vel_controller.h>
 #include "capture_diag.h"
 
 #define MAX_PWM 255
@@ -47,8 +47,8 @@ static uint16_t execute_mode_cmd(Command *command, char *reply_buf)
   if (app_mode != command->modeType) // When mode changed stop motor
   {
 	  app_mode = command->modeType;
-	  controller_reset();
-	  controller_set_target_rpm(0);
+	  vel_controller_reset();
+	  vel_controller_set_target_rpm(0);
 	  motor_set_pwm(0);
 	  state.app_desired_rpm = 0;
   }
@@ -76,7 +76,7 @@ static uint16_t execute_motor_cmd(Command *command, char *reply_buf)
     if (app_mode == Auto)
     {
     	state.app_desired_rpm = (float)(command->target);
-    	controller_set_target_rpm((float)command->target);
+    	vel_controller_set_target_rpm((float)command->target);
     }
     else if (app_mode == Manual)
     {
@@ -99,8 +99,8 @@ static uint16_t execute_stop_cmd(Command *command, char *reply_buf)
 	  return size;
   }
 
-  controller_reset();
-  controller_set_target_rpm(0);
+  vel_controller_reset();
+  vel_controller_set_target_rpm(0);
   motor_set_pwm(0);
   state.app_desired_rpm = 0;
   state.cont_pwm = 0;
@@ -165,7 +165,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 	pos += out_len;
 
-	if (!try_int32_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.est_position, &out_len))
+	if (!try_int32_to_str(reply_buf + pos, CMD_BUF_SIZE - pos, state.enc_current_pos, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -295,21 +295,21 @@ void app_init(void)
 	encoder_init();
 	motor_init();
 	estimator_init(encoder_get_position());
-	controller_init();
+	vel_controller_init();
 }
 
 void app_do_control_action(void) // ISR context
 {
-    state.est_position = encoder_get_position();
+    state.enc_current_pos = encoder_get_position();
 
     state.est_current_rpm = estimator_get_rpm_t();
 
-    controller_set_current_rpm(state.est_current_rpm);
+    vel_controller_set_current_rpm(state.est_current_rpm);
 
     if (app_mode == Auto)
     {
-        state.cont_pwm = controller_get_control_value();
-        controller_fill_drive_state(&state);
+        state.cont_pwm = vel_controller_get_control_value();
+        vel_controller_fill_drive_state(&state);
         motor_set_pwm(state.cont_pwm);
     }
 }
@@ -336,14 +336,14 @@ uint16_t app_get_telemetry(char *telemetry_buf, uint32_t now)
 
 void app_do_silence_action()
 {
-	controller_reset();
-	controller_set_target_rpm(0);
+	vel_controller_reset();
+	vel_controller_set_target_rpm(0);
 	motor_set_pwm(0);
 	state.app_desired_rpm = 0;
 }
 
 void app_calc_v_bat(const battery_t *b)
 {
-	state.v_bat = battery_calc_v(b);
+	state.bat_voltage = battery_calc_v(b);
 }
 

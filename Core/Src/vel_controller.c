@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <math.h>
+#include <vel_controller.h>
 #include "app.h"
-#include "controller.h"
 
 #define MIN_CV -255
 #define MAX_CV 255
@@ -29,7 +29,7 @@ static int16_t control_value;
 void calcI()
 {
   float current_i = error * DELTA_TIME_SEC;
-  float rawOutput = uff + p + (i_sum + current_i) * KI + d;
+  float rawOutput = uff + p + (i_sum + current_i) * VEL_KI + d;
 
   if ((rawOutput > MAX_CV && error > 0) || (rawOutput < MIN_CV && error < 0)) //anti windup
 	return;
@@ -42,12 +42,12 @@ void calcI()
   else
 	  i_sum += current_i;
 
-  i = i_sum * KI;
+  i = i_sum * VEL_KI;
 }
 
 void calcD()
 {
-  if (KD == 0)
+  if (VEL_KD == 0)
   {
 	d = 0;
 	previous_rpm = current_rpm;
@@ -69,11 +69,11 @@ void calcD()
   else if (raw_derivative < -MAX_RAW_DERIVATIVE)
 	  raw_derivative = -MAX_RAW_DERIVATIVE;
 
-  d = KD * raw_derivative;
+  d = VEL_KD * raw_derivative;
   previous_rpm = current_rpm;
 }
 
-void controller_init()
+void vel_controller_init()
 {
 	target_rpm = 0;
   error = 0;
@@ -88,30 +88,30 @@ void controller_init()
   control_value = 0;
 }
 
-void controller_set_target_rpm(float target)
+void vel_controller_set_target_rpm(float target)
 {
 	target_rpm = target;
 }
 
-void controller_set_current_rpm(float current)
+void vel_controller_set_current_rpm(float current)
 {
 	current_rpm = current;
 }
 
-void controller_fill_drive_state(drive_state *state)
+void vel_controller_fill_drive_state(drive_state *state)
 {
 	if (state == NULL)
 		return;
 
 	state->cont_pwm = control_value;
-	state->cont_error = error;
-	state->cont_p = p;
-	state->cont_i = i;
-	state->cont_d = d;
-	state->cont_uff = uff;
+	state->cont_vel_error = error;
+	state->cont_vel_p = p;
+	state->cont_vel_i = i;
+	state->cont_vel_d = d;
+	state->cont_vel_uff = uff;
 }
 
-int16_t controller_get_control_value()
+int16_t vel_controller_get_control_value()
 {
   if (target_rpm == 0)
   {
@@ -123,7 +123,7 @@ int16_t controller_get_control_value()
   }
 
   error = target_rpm - current_rpm;
-  p = error * KP;
+  p = error * VEL_KP;
   uff = ff_coef1 * target_rpm + ff_coef2;
 
   calcD();
@@ -146,7 +146,7 @@ int16_t controller_get_control_value()
   return control_value;
 }
 
-void controller_reset()
+void vel_controller_reset()
 {
   target_rpm = 0;
   error = 0;

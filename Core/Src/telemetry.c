@@ -45,7 +45,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_error, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_vel_error, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -55,7 +55,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_p, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_vel_p, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -65,7 +65,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_i, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_vel_i, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -75,7 +75,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_d, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_vel_d, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -85,7 +85,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_uff, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_vel_uff, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -105,7 +105,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->v_bat, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->bat_voltage, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;

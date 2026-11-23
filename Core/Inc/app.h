@@ -51,16 +51,18 @@ typedef struct
 
 typedef struct
 {
-	float cont_error;
-	float cont_p;
-	float cont_i;
-	float cont_d;
-	float cont_uff;
-	int16_t cont_pwm;
-	int32_t est_position;
-	float est_current_rpm;
 	float app_desired_rpm;
-	float v_bat;
+	float est_current_rpm;
+	float cont_vel_error;
+	float cont_vel_p;
+	float cont_vel_i;
+	float cont_vel_d;
+	float cont_vel_uff;
+	int32_t enc_current_pos;
+	int32_t cont_pos_error;
+	float cont_pos_p;
+	int16_t cont_pwm;
+	float bat_voltage;
 } drive_state;
 
 uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *reply_buf);

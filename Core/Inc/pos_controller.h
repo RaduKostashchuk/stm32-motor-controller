@@ -1,0 +1,7 @@
+#ifndef POS_CONTROLLER_H
+#define POS_CONTROLLER_H
+
+#define POS_CONTROL_MAX_RPM 50
+#define POS_KP 1
+
+#endif /* POS_CONTROLLER_H */
