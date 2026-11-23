@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-bool try_copy_str(const char *src, char *dst, size_t dst_size, size_t *out_len)
+bool try_copy_str(char *dst, size_t dst_size, const char *src, size_t *out_len)
 {
     if (dst == NULL || dst_size == 0 || src == NULL)
         return false;

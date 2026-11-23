@@ -15,55 +15,51 @@ extern "C" {
 #define TELEMETRY_BUF_SIZE 160
 #define APP_REPLY_BUF_SIZE 400
 #define UART_MAX_SILENCE_DURATION_MS 60000
-#define TELEMETRY_INTERVAL_MS 50
+#define TELEMETRY_INTERVAL_MS 500
 #define BATTERY_CHECK_INTERVAL_MS 500
 #define DELTA_TIME_SEC 0.01f // controller and estimator freq
 
 typedef enum
 {
-  Motor,
-  Stop,
-  Status,
-  AppMode,
-  InvalidMotor,
-  InvalidStop,
-  InvalidMode,
-  InvalidStatus,
-  Unknown,
-  None
-} command_type;
-
-typedef enum
-{
-  Auto,
-  Manual
-} mode_type;
-
-// Modetype == Auto, target { -95. 95 } RPMs, Modetype == manual, target { -250. 250 } PWM
-typedef struct
-{
-  command_type type;
-  mode_type modeType;
-  bool hasMotorNumber;
-  int32_t motorNumber;
-  int32_t target;
-} Command;
+    COMMAND_PWM,
+	COMMAND_VEL,
+	COMMAND_POS,
+    COMMAND_STOP,
+    COMMAND_STATUS,
+    COMMAND_INVALID_PWM,
+	COMMAND_INVALID_VEL,
+	COMMAND_INVALID_POS,
+    COMMAND_INVALID_STOP,
+    COMMAND_INVALID_STATUS,
+    COMMAND_UNKNOWN,
+    COMMAND_NONE
+} command_type_t;
 
 typedef struct
 {
-	float app_desired_rpm;
+	command_type_t type;
+	bool has_motor_number;
+	int32_t motor_number;
+	int32_t pwm;
+	int32_t velocity;
+	int32_t position;
+} command_t;
+
+typedef struct
+{
+	float target_rpm;
 	float est_current_rpm;
 	float cont_vel_error;
 	float cont_vel_p;
 	float cont_vel_i;
 	float cont_vel_d;
 	float cont_vel_uff;
+	int32_t app_target_pos;
 	int32_t enc_current_pos;
 	int32_t cont_pos_error;
-	float cont_pos_p;
-	int16_t cont_pwm;
+	int16_t cont_vel_pwm;
 	float bat_voltage;
-} drive_state;
+} drive_state_t;
 
 uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *reply_buf);
 void app_init(void);

@@ -14,230 +14,253 @@ TEST_TEAR_DOWN(Parser) {}
 TEST(Parser, test_empty_string)
 {
 	char *input = "";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Unknown);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_UNKNOWN);
 }
 
 TEST(Parser, test_only_spaces)
 {
 	char *input =  "     ";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Unknown);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_UNKNOWN);
 }
 
 TEST(Parser, test_leading_spaces)
 {
 	char *input = "  STOP";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Stop);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_STOP);
 }
 
 TEST(Parser, test_trailing_spaces)
 {
 	char *input = "STOP    ";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Stop);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_STOP);
 }
 
 TEST(Parser, test_double_spaces)
 {
-	char *input = "MODE   AUTO";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == AppMode);
+	char *input = "PWM  1 10";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_PWM);
 }
 
 TEST(Parser, test_single_token)
 {
 	char *input = "STATUS";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Status);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_STATUS);
 }
 
 // try_get_int32
 
-TEST(Parser, test_motor_positive)
+TEST(Parser, test_pwm_positive)
 {
-	char *input = "MOTOR 1 50";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.target == 50);
+	char *input = "PWM 1 50";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.pwm == 50);
 }
 
-TEST(Parser, test_motor_negative)
+TEST(Parser, test_pwm_negative)
 {
-	char *input = "MOTOR 1 -50";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.target == -50);
+	char *input = "PWM 1 -50";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.pwm == -50);
 }
 
-TEST(Parser, test_motor_zero)
+TEST(Parser, test_pwm_zero)
 {
-	char *input = "MOTOR 1 0";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.target == 0);
+	char *input = "PWM 1 0";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.pwm == 0);
 }
 
-TEST(Parser, test_motor_trailing_garbage)
+TEST(Parser, test_pwm_trailing_garbage)
 {
-	char *input = "MOTOR 1 1a";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMotor);
+	char *input = "PWM 1 1a";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_PWM);
 }
 
-TEST(Parser, test_motor_leading_garbage)
+TEST(Parser, test_pwm_leading_garbage)
 {
-	char *input = "MOTOR 1 a1";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMotor);
+	char *input = "PWM 1 a1";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_PWM);
 }
 
-TEST(Parser, test_motor_num_garbage)
+TEST(Parser, test_pwm_num_garbage)
 {
-	char *input = "MOTOR x 50";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMotor);
+	char *input = "PWM x 50";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_PWM);
 }
 
-// parseMotorCmd
+// parse_pwm_cmd
 
-TEST(Parser, test_motor_valid)
+TEST(Parser, test_pwm_valid)
 {
-	char *input = "MOTOR 1 50";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Motor && parsed.motorNumber == 1 && parsed.target == 50);
+	char *input = "PWM 1 50";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_PWM && parsed.motor_number == 1 && parsed.pwm == 50);
 }
 
-TEST(Parser, test_motor_mo_args)
+TEST(Parser, test_pwm_no_args)
 {
-	char *input = "MOTOR";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMotor);
+	char *input = "PWM";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_PWM);
 }
 
-TEST(Parser, test_motor_too_many_args)
+TEST(Parser, test_pwm_too_many_args)
 {
-	char *input = "MOTOR 1 1 1";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMotor);
+	char *input = "PWM 1 1 1";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_PWM);
 }
 
-TEST(Parser, test_motor_any_number)
+TEST(Parser, test_pwm_any_number)
 {
-	char *input = "MOTOR 99 99";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Motor && parsed.motorNumber == 99 && parsed.target == 99);
+	char *input = "PWM 99 99";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_PWM && parsed.motor_number == 99 && parsed.pwm == 99);
 }
 
-// parseStopCmd
+// parse_vel_cmd
+
+TEST(Parser, test_vel_valid)
+{
+	char *input = "VEL 1 50";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_VEL && parsed.motor_number == 1 && parsed.velocity == 50);
+}
+
+TEST(Parser, test_vel_no_args)
+{
+	char *input = "VEL";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_VEL);
+}
+
+TEST(Parser, test_vel_too_many_args)
+{
+	char *input = "VEL 1 1 1";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_VEL);
+}
+
+TEST(Parser, test_vel_any_number)
+{
+	char *input = "VEL 99 99";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_VEL && parsed.motor_number == 99 && parsed.velocity == 99);
+}
+
+// parse_pos_cmd
+
+TEST(Parser, test_pos_valid)
+{
+	char *input = "POS 1 50";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_POS && parsed.motor_number == 1 && parsed.position == 50);
+}
+
+TEST(Parser, test_pos_no_args)
+{
+	char *input = "POS";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_POS);
+}
+
+TEST(Parser, test_pos_too_many_args)
+{
+	char *input = "POS 1 1 1";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_POS);
+}
+
+TEST(Parser, test_pos_any_number)
+{
+	char *input = "POS 99 99";
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_POS && parsed.motor_number == 99 && parsed.position == 99);
+}
+
+// parse_stop_cmd
 
 TEST(Parser, test_stop_no_args)
 {
 	char *input = "STOP";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Stop);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_STOP);
 }
 
 TEST(Parser, test_stop_with_number)
 {
 	char *input = "STOP 111";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Stop && parsed.motorNumber == 111);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_STOP && parsed.motor_number == 111);
 }
 
 TEST(Parser, test_stop_invalid_number)
 {
 	char *input = "STOP xxx";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidStop);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_STOP);
 }
 
 TEST(Parser, test_stop_too_many_args)
 {
 	char *input = "STOP 1 1";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidStop);
-}
-
-// parseModeCmd
-
-TEST(Parser, test_mode_auto)
-{
-	char *input = "MODE AUTO";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == AppMode && parsed.modeType == Auto);
-}
-
-TEST(Parser, test_mode_manual)
-{
-	char *input = "MODE MANUAL";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == AppMode && parsed.modeType == Manual);
-}
-
-TEST(Parser, test_mode_no_args)
-{
-	char *input = "MODE";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMode);
-}
-
-TEST(Parser, test_mode_invalid_arg)
-{
-	char *input = "MODE QWE";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMode);
-}
-
-TEST(Parser, test_mode_extra_arg)
-{
-	char *input = "MODE QW ER";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidMode);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_STOP);
 }
 
 // General
 TEST(Parser, test_unknown_command)
 {
 	char *input = "TEST";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Unknown);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_UNKNOWN);
 }
 
 TEST(Parser, test_status_valid)
 {
 	char *input = "STATUS";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Status);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_STATUS);
 }
 
 TEST(Parser, test_status_extra_arg)
 {
 	char *input = "STATUS 1";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == InvalidStatus);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_INVALID_STATUS);
 }
 
 TEST(Parser, test_low_case)
 {
 	char *input = "stop 1";
-	Command parsed = parse(input);
-	TEST_ASSERT_TRUE(parsed.type == Unknown);
+	command_t parsed = parse(input);
+	TEST_ASSERT_TRUE(parsed.type == COMMAND_UNKNOWN);
 }
 
-TEST(Parser, test_motor_max_target)
+TEST(Parser, test_pwm_max_target)
 {
-	char *input = "MOTOR 1 250";
-    Command parsed = parse(input);
-    TEST_ASSERT_EQUAL(Motor, parsed.type);
-    TEST_ASSERT_EQUAL(1, parsed.motorNumber);
-    TEST_ASSERT_EQUAL(250, parsed.target);
+	char *input = "PWM 1 255";
+	command_t parsed = parse(input);
+    TEST_ASSERT_EQUAL(COMMAND_PWM, parsed.type);
+    TEST_ASSERT_EQUAL(1, parsed.motor_number);
+    TEST_ASSERT_EQUAL(255, parsed.pwm);
 }
 
-TEST(Parser, test_motor_max_negative)
+TEST(Parser, test_pwm_max_negative)
 {
-	char *input = "MOTOR 1 -250";
-    Command parsed = parse(input);
-    TEST_ASSERT_EQUAL(Motor, parsed.type);
-    TEST_ASSERT_EQUAL(-250, parsed.target);
+	char *input = "PWM 1 -255";
+	command_t parsed = parse(input);
+    TEST_ASSERT_EQUAL(COMMAND_PWM, parsed.type);
+    TEST_ASSERT_EQUAL(-255, parsed.pwm);
 }
 
 TEST_GROUP_RUNNER(Parser)
@@ -250,38 +273,43 @@ TEST_GROUP_RUNNER(Parser)
 	RUN_TEST_CASE(Parser, test_double_spaces);
 	RUN_TEST_CASE(Parser, test_single_token);
 
-	// tryGetLong
-	RUN_TEST_CASE(Parser, test_motor_positive);
-	RUN_TEST_CASE(Parser, test_motor_negative);
-	RUN_TEST_CASE(Parser, test_motor_zero);
-	RUN_TEST_CASE(Parser, test_motor_trailing_garbage);
-	RUN_TEST_CASE(Parser, test_motor_leading_garbage);
-	RUN_TEST_CASE(Parser, test_motor_num_garbage);
+	// try_get_int32
+	RUN_TEST_CASE(Parser, test_pwm_positive);
+	RUN_TEST_CASE(Parser, test_pwm_negative);
+	RUN_TEST_CASE(Parser, test_pwm_zero);
+	RUN_TEST_CASE(Parser, test_pwm_trailing_garbage);
+	RUN_TEST_CASE(Parser, test_pwm_leading_garbage);
+	RUN_TEST_CASE(Parser, test_pwm_num_garbage);
 
-	// parseMotorCmd
-	RUN_TEST_CASE(Parser, test_motor_valid);
-	RUN_TEST_CASE(Parser, test_motor_mo_args);
-	RUN_TEST_CASE(Parser, test_motor_too_many_args);
-	RUN_TEST_CASE(Parser, test_motor_any_number);
+	// parse_pwm_cmd
+	RUN_TEST_CASE(Parser, test_pwm_valid);
+	RUN_TEST_CASE(Parser, test_pwm_no_args);
+	RUN_TEST_CASE(Parser, test_pwm_too_many_args);
+	RUN_TEST_CASE(Parser, test_pwm_any_number);
 
-	// parseStopCmd
+	// parse_vel_cmd
+	RUN_TEST_CASE(Parser, test_vel_valid);
+	RUN_TEST_CASE(Parser, test_vel_no_args);
+	RUN_TEST_CASE(Parser, test_vel_too_many_args);
+	RUN_TEST_CASE(Parser, test_vel_any_number);
+
+	// parse_pos_cmd
+	RUN_TEST_CASE(Parser, test_pos_valid);
+	RUN_TEST_CASE(Parser, test_pos_no_args);
+	RUN_TEST_CASE(Parser, test_pos_too_many_args);
+	RUN_TEST_CASE(Parser, test_pos_any_number);
+
+	// parse_stop_cmd
 	RUN_TEST_CASE(Parser, test_stop_no_args);
 	RUN_TEST_CASE(Parser, test_stop_with_number);
 	RUN_TEST_CASE(Parser, test_stop_invalid_number);
 	RUN_TEST_CASE(Parser, test_stop_too_many_args);
-
-	// parseModeCmd
-	RUN_TEST_CASE(Parser, test_mode_auto);
-	RUN_TEST_CASE(Parser, test_mode_manual);
-	RUN_TEST_CASE(Parser, test_mode_no_args);
-	RUN_TEST_CASE(Parser, test_mode_invalid_arg);
-	RUN_TEST_CASE(Parser, test_mode_extra_arg);
 
 	// General
 	RUN_TEST_CASE(Parser, test_unknown_command);
 	RUN_TEST_CASE(Parser, test_status_valid);
 	RUN_TEST_CASE(Parser, test_status_extra_arg);
 	RUN_TEST_CASE(Parser, test_low_case);
-	RUN_TEST_CASE(Parser, test_motor_max_target);
-	RUN_TEST_CASE(Parser, test_motor_max_negative);
+	RUN_TEST_CASE(Parser, test_pwm_max_target);
+	RUN_TEST_CASE(Parser, test_pwm_max_negative);
 }

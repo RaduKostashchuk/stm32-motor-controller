@@ -11,8 +11,8 @@
 void vel_controller_init(void);
 void vel_controller_set_target_rpm(float target);
 void vel_controller_set_current_rpm(float current);
-int16_t vel_controller_get_control_value();
-void vel_controller_fill_drive_state(drive_state * state);
-void vel_controller_reset();
+void vel_controller_calc_control_value(void);
+void vel_controller_fill_drive_state(drive_state_t * state);
+void vel_controller_reset(void);
 
 #endif /* INC_CONTROLLER_H */

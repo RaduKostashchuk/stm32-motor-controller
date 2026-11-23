@@ -26,7 +26,7 @@ Stack:
 ┌─────────────────────────────────────┐
 │  Application                        │  ← orchestration
 ├─────────────────────────────────────┤
-│  Serial Commands (Reader + Parser)  │  ← command from PC: MOTOR, STOP, MODE
+│  Serial Commands (Reader + Parser)  │  ← command from PC: PWM, VEL, POS, STOP, STATUS
 ├─────────────────────────────────────┤
 │  Controller (FF + PID)              │  ← velocity control
 ├─────────────────────────────────────┤
@@ -98,12 +98,12 @@ T-method covered by 10 regression tests: math, glitch rejection, sliding window 
 
 ## 5. Testing
 
-Unit tests for host execution (Unity): **119**.
+Unit tests for host execution (Unity): **122**.
 
 | Module | Tests | Coverage |
 |---|---|---|
 | format | 46 | INT32_MIN, float rounding, NULL guards, buffer overflow |
-| parser | 31 | Valid/invalid commands, long tokens, edge whitespace |
+| parser | 34 | Valid/invalid commands, long tokens, edge whitespace |
 | reader | 11 | FSM, ring buffer, multi-command, discard, CR/LF |
 | estimator m-method + t-method | 20 | Bidirectional, glitch rejection, boundary, recovery |
 | controller | 11 | P/I/D, anti-windup (both directions), deadband, saturation |
@@ -143,7 +143,7 @@ T:<millis>,desired,current,error,p,i,d,uff,pwm,vbat
 **Python-script** (`tools/telemetry_reader.py`):
 - Opens Serial at 115200.
 - Waits 2 seconds for stabilization.
-- Sends `MODE AUTO`, `MOTOR 1 <rpm>`.
+- Sends `VEL 1 <rpm>`.
 - Writes telemetry to CSV file.
 - Sends — `STOP`.
 

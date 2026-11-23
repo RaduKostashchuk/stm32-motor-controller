@@ -4,13 +4,13 @@
 
 static const char telemetry_prefix[] = "T:";
 
-uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t now)
+uint16_t telemetry_get_data(drive_state_t *state, char *telemetry_buf, uint32_t now)
 {
 	_Static_assert(TELEMETRY_BUF_SIZE > 130, "TX_BUF_LEN too small for worst case");
 	size_t buf_pos = 0;
 	size_t copy_len = 0;
 
-	if (!try_copy_str(telemetry_prefix, telemetry_buf, TELEMETRY_BUF_SIZE, &copy_len))
+	if (!try_copy_str(telemetry_buf, TELEMETRY_BUF_SIZE, telemetry_prefix, &copy_len))
 		return 0;
 
 	buf_pos = copy_len;
@@ -20,17 +20,17 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
 
-	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->app_desired_rpm, &copy_len))
+	if (!try_float_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->target_rpm, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -40,7 +40,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -50,7 +50,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -60,7 +60,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -70,7 +70,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -80,7 +80,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -90,17 +90,47 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
 
-	if (!try_int32_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_pwm, &copy_len))
+	if (!try_int32_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->app_target_pos, &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str(",", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_int32_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->enc_current_pos, &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_int32_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_pos_error, &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_int32_to_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, state->cont_vel_pwm, &copy_len))
+		return 0;
+
+	buf_pos += copy_len;
+
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, ",", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;
@@ -110,7 +140,7 @@ uint16_t telemetry_get_data(drive_state *state, char *telemetry_buf, uint32_t no
 
 	buf_pos += copy_len;
 
-	if (!try_copy_str("\n", telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, &copy_len))
+	if (!try_copy_str(telemetry_buf + buf_pos, TELEMETRY_BUF_SIZE - buf_pos, "\n", &copy_len))
 		return 0;
 
 	buf_pos += copy_len;

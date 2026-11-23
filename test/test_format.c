@@ -17,7 +17,7 @@ TEST(Formatter, test_normal)
 	size_t out_len = 0;
 	char dst_buf[DST_SIZE];
 	const char *src_buf = "1234";
-    TEST_ASSERT_TRUE(try_copy_str(src_buf, dst_buf, DST_SIZE, &out_len));
+    TEST_ASSERT_TRUE(try_copy_str(dst_buf, DST_SIZE, src_buf, &out_len));
     TEST_ASSERT_EQUAL_STRING(src_buf, dst_buf);
     TEST_ASSERT_EQUAL_UINT32((uint32_t)src_len, (uint32_t)out_len);
 }
@@ -26,7 +26,7 @@ TEST(Formatter, test_dst_null)
 {
 	size_t out_len = 33;
 	char src_buf[] = "1234";
-    TEST_ASSERT_FALSE(try_copy_str(src_buf, NULL, DST_SIZE, &out_len));
+    TEST_ASSERT_FALSE(try_copy_str(NULL, DST_SIZE, src_buf, &out_len));
     TEST_ASSERT_EQUAL_UINT32(33, out_len);
 }
 
@@ -34,7 +34,7 @@ TEST(Formatter, test_src_null)
 {
 	size_t out_len = 33;
 	char dst_buf[DST_SIZE] = "prev";
-	TEST_ASSERT_FALSE(try_copy_str(NULL, dst_buf, DST_SIZE, &out_len));
+	TEST_ASSERT_FALSE(try_copy_str(dst_buf, DST_SIZE, NULL, &out_len));
     TEST_ASSERT_EQUAL_UINT32(33, out_len);
     TEST_ASSERT_EQUAL_STRING("prev", dst_buf);
 }
@@ -44,7 +44,7 @@ TEST(Formatter, test_short_dst)
 	size_t out_len = 33;
 	char dst_buf[DST_SIZE];
 	const char *src_buf = "12345678";
-    TEST_ASSERT_FALSE(try_copy_str(src_buf, dst_buf, 4, &out_len));
+    TEST_ASSERT_FALSE(try_copy_str(dst_buf, 4, src_buf, &out_len));
     TEST_ASSERT_EQUAL_STRING("123", dst_buf);
     TEST_ASSERT_EQUAL_UINT32(33, (uint32_t)out_len);
 }
@@ -54,7 +54,7 @@ TEST(Formatter, test_dst_len_0)
 	size_t out_len = 33;
 	char dst_buf[DST_SIZE] = "W";
 	const char *src_buf = "12345678";
-    TEST_ASSERT_FALSE(try_copy_str(src_buf, dst_buf, 0, &out_len));
+    TEST_ASSERT_FALSE(try_copy_str(dst_buf, 0, src_buf, &out_len));
     TEST_ASSERT_EQUAL_UINT32(33, out_len);
     TEST_ASSERT_EQUAL_STRING("W", dst_buf);
 }
@@ -63,7 +63,7 @@ TEST(Formatter, test_out_len_null)
 {
 	char dst_buf[DST_SIZE];
 	const char *src_buf = "1234";
-    TEST_ASSERT_TRUE(try_copy_str(src_buf, dst_buf, DST_SIZE, NULL));
+    TEST_ASSERT_TRUE(try_copy_str(dst_buf, DST_SIZE, src_buf, NULL));
     TEST_ASSERT_EQUAL_STRING(src_buf, dst_buf);
 }
 
@@ -72,7 +72,7 @@ TEST(Formatter, test_dst_len_1_src_empty)
 	size_t out_len = 42;
 	char dst_buf[DST_SIZE];
 	const char *src_buf = "";
-    TEST_ASSERT_TRUE(try_copy_str(src_buf, dst_buf, 1, &out_len));
+    TEST_ASSERT_TRUE(try_copy_str(dst_buf, 1, src_buf, &out_len));
     TEST_ASSERT_EQUAL_STRING(src_buf, dst_buf);
     TEST_ASSERT_EQUAL_UINT32(0, (uint32_t)out_len);
 }
@@ -83,7 +83,7 @@ TEST(Formatter, test_dst_len_1_src_non_empty)
 	char dst_buf[DST_SIZE];
     const char *src_buf = "123";
     out_len = 33;
-    TEST_ASSERT_FALSE(try_copy_str(src_buf, dst_buf, 1, &out_len));
+    TEST_ASSERT_FALSE(try_copy_str(dst_buf, 1, src_buf, &out_len));
     TEST_ASSERT_EQUAL_UINT32(33, (uint32_t)out_len);
 }
 
@@ -91,7 +91,7 @@ TEST(Formatter, test_copy_str_exact_fit)
 {
     char dst[DST_SIZE]; // "1234\0"
     size_t out_len = 0;
-    TEST_ASSERT_TRUE(try_copy_str("1234", dst, 5, &out_len));
+    TEST_ASSERT_TRUE(try_copy_str(dst, 5, "1234", &out_len));
     TEST_ASSERT_EQUAL_STRING("1234", dst);
     TEST_ASSERT_EQUAL_UINT32(4, (uint32_t)out_len);
 }
@@ -100,7 +100,7 @@ TEST(Formatter, test_empty_src)
 {
     size_t out_len = 42;
     char dst[DST_SIZE];
-    TEST_ASSERT_TRUE(try_copy_str("", dst, DST_SIZE, &out_len));
+    TEST_ASSERT_TRUE(try_copy_str(dst, DST_SIZE, "", &out_len));
     TEST_ASSERT_EQUAL_STRING("", dst);
     TEST_ASSERT_EQUAL_UINT32(0, (uint32_t)out_len);
 }

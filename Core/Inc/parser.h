@@ -3,6 +3,6 @@
 
 #include "app.h"
 
-Command parse(const char *raw_cmd);
+command_t parse(const char *raw_cmd);
 
 #endif /* INC_READER_H */

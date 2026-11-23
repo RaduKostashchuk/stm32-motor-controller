@@ -12,41 +12,45 @@ typedef struct
 } Token;
 
 static void tokenize(Token * tokens, size_t * tokenCount, const char *raw_cmd);
-static void parseModeCmd(Token * tokens, size_t tokenCount, Command * command);
-static void parseMotorCmd(Token * tokens, size_t tokenCount, Command * command);
-static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command);
+static void parse_pwm_cmd(Token * tokens, size_t tokenCount, command_t * command);
+static void parse_vel_cmd(Token * tokens, size_t tokenCount, command_t * command);
+static void parse_pos_cmd(Token * tokens, size_t tokenCount, command_t * command);
+static void parse_stop_cmd(Token * tokens, size_t tokenCount, command_t * command);
+static bool try_get_second_third_args(uint8_t cmd_len, Token * tokens, size_t tokenCount, int32_t * second, int32_t * third);
 static bool try_get_int32(const char *arg, int32_t *number);
 
-const char *motorCmd = "MOTOR";
-const char *stopCmd = "STOP";
-const char *modeCmd = "MODE";
-const char *autoModeCmd = "AUTO";
-const char *manualModeCmd = "MANUAL";
-const char *statusCmd = "STATUS";
+const char *pwm_cmd = "PWM";
+const char *vel_cmd = "VEL";
+const char *pos_cmd = "POS";
+const char *stop_cmd = "STOP";
+const char *status_cmd = "STATUS";
 
-Command parse(const char *raw_cmd)
+command_t parse(const char *raw_cmd)
 {
   Token tokens[MAX_CMD_PARTS] = {0};
   size_t tokenCount = 0;
   tokenize(tokens, &tokenCount, raw_cmd);
 
-  Command command = {
-		.type = Unknown,
-		.modeType = Auto,
-		.hasMotorNumber = false,
-		.motorNumber = 0,
-		.target = 0
+  command_t command = {
+		.type = COMMAND_UNKNOWN,
+		.has_motor_number = false,
+		.motor_number = 0,
+		.pwm = 0,
+		.velocity = 0,
+		.position = 0
   };
 
-  const uint8_t statusCmdLen = 6;
-  if (strcmp((const char *)tokens[0].content, motorCmd) == 0)
-	parseMotorCmd(tokens, tokenCount, &command);
-  else if (strcmp((const char *)tokens[0].content, stopCmd) == 0)
-	parseStopCmd(tokens, tokenCount, &command);
-  else if (strcmp((const char *)tokens[0].content, modeCmd) == 0)
-	parseModeCmd(tokens, tokenCount, &command);
-  else if (strcmp((const char *)tokens[0].content, statusCmd) == 0)
-	command.type = tokenCount == 1 && tokens[0].length == statusCmdLen ? Status : InvalidStatus;
+  const uint8_t status_cmd_len = 6;
+  if (strcmp((const char *)tokens[0].content, pwm_cmd) == 0)
+	parse_pwm_cmd(tokens, tokenCount, &command);
+  if (strcmp((const char *)tokens[0].content, vel_cmd) == 0)
+	parse_vel_cmd(tokens, tokenCount, &command);
+  if (strcmp((const char *)tokens[0].content, pos_cmd) == 0)
+	parse_pos_cmd(tokens, tokenCount, &command);
+  else if (strcmp((const char *)tokens[0].content, stop_cmd) == 0)
+	parse_stop_cmd(tokens, tokenCount, &command);
+  else if (strcmp((const char *)tokens[0].content, status_cmd) == 0)
+	command.type = tokenCount == 1 && tokens[0].length == status_cmd_len ? COMMAND_STATUS : COMMAND_INVALID_STATUS;
 
   return command;
 }
@@ -91,70 +95,83 @@ static void tokenize(Token * tokens, size_t * tokenCount, const char *raw_cmd)
 		(*tokens).content[i] = '\0';
 }
 
-static void parseModeCmd(Token * tokens, size_t tokenCount, Command * command)
+static void parse_pwm_cmd(Token * tokens, size_t tokenCount, command_t * command)
 {
-  const uint8_t modeCmdLen = 4;
-  command->type = InvalidMode;
-  if (tokenCount != 2 || (*tokens).length != modeCmdLen)
-	return;
+	const uint8_t cmd_len = 3;
+	command->type = COMMAND_INVALID_PWM;
 
-  const uint8_t autoCmdLen = 4;
-  const uint8_t manualCmdLen = 6;
-  Token secondArg = *(tokens + 1);
-  if (strcmp((const char *)secondArg.content, autoModeCmd) == 0 && secondArg.length == autoCmdLen)
-  {
-	command->modeType = Auto;
-	command->type = AppMode;
-  }
-  else if (strcmp((const char *)secondArg.content, manualModeCmd) == 0 && secondArg.length == manualCmdLen)
-  {
-	command->modeType = Manual;
-	command->type = AppMode;
-  }
+	int32_t motor_number = 0;
+	int32_t pwm = 0;
+	if (!try_get_second_third_args(cmd_len, tokens, tokenCount, &motor_number, &pwm))
+		return;
+
+	command->motor_number = motor_number;
+	command->type = COMMAND_PWM;
+	command->pwm = pwm;
 }
 
-static void parseMotorCmd(Token * tokens, size_t tokenCount, Command * command)
+static void parse_vel_cmd(Token * tokens, size_t tokenCount, command_t * command)
 {
-  const uint8_t motorCmdLen = 5;
-  command->type = InvalidMotor;
-  if (tokenCount != 3 || (*tokens).length != motorCmdLen || (*(tokens + 2)).length == 0)
-	return;
+	const uint8_t cmd_len = 3;
+	command->type = COMMAND_INVALID_VEL;
 
-  char * secondArg = (*(tokens + 1)).content;
-  int32_t motorNumber = 0;
-  if (try_get_int32(secondArg, &motorNumber))
-	command->motorNumber = motorNumber;
-  else
-	return;
+	int32_t motor_number = 0;
+	int32_t velocity = 0;
+	if (!try_get_second_third_args(cmd_len, tokens, tokenCount, &motor_number, &velocity))
+		return;
 
-  char * thirdArg = (*(tokens + 2)).content;
-  int32_t target = 0;
-  if (try_get_int32(thirdArg, &target))
-  {
-	command->type = Motor;
-	command->target = target;
-  }
+	command->motor_number = motor_number;
+	command->type = COMMAND_VEL;
+	command->velocity = velocity;
 }
 
-static void parseStopCmd(Token * tokens, size_t tokenCount, Command * command)
+static void parse_pos_cmd(Token * tokens, size_t tokenCount, command_t * command)
 {
-  const uint8_t stopCmdLen = 4;
-  command->type = InvalidStop;
-  if (tokenCount > 2 || (*tokens).length != stopCmdLen)
+	const uint8_t cmd_len = 3;
+	command->type = COMMAND_INVALID_POS;
+
+	int32_t motor_number = 0;
+	int32_t position = 0;
+	if (!try_get_second_third_args(cmd_len, tokens, tokenCount, &motor_number, &position))
+		return;
+
+	command->motor_number = motor_number;
+	command->type = COMMAND_POS;
+	command->position = position;
+}
+
+static void parse_stop_cmd(Token * tokens, size_t tokenCount, command_t * command)
+{
+  const uint8_t cmd_len = 4;
+  command->type = COMMAND_INVALID_STOP;
+  if (tokenCount > 2 || (*tokens).length != cmd_len)
 	return;
 
   Token * secondArg = tokens + 1;
-  int32_t motorNumber = 0;
+  int32_t motor_number = 0;
   if ((*secondArg).length == 0)
   {
-	command->type = Stop;
+	command->type = COMMAND_STOP;
   }
-  else if (try_get_int32((*secondArg).content, &motorNumber))
+  else if (try_get_int32((*secondArg).content, &motor_number) && motor_number > 0)
   {
-	command->type = Stop;
-	command->motorNumber = motorNumber;
-	command->hasMotorNumber = true;
+	command->type = COMMAND_STOP;
+	command->motor_number = (uint8_t)motor_number;
+	command->has_motor_number = true;
   }
+}
+
+static bool try_get_second_third_args(uint8_t cmd_len, Token * tokens, size_t tokenCount, int32_t * second, int32_t * third)
+{
+	if (tokenCount != 3 || (*tokens).length != cmd_len || (*(tokens + 2)).length == 0)
+		return false;
+
+	char * secondArg = (*(tokens + 1)).content;
+	if (!try_get_int32(secondArg, second))
+		return false;
+
+	char * thirdArg = (*(tokens + 2)).content;
+	return try_get_int32(thirdArg, third);
 }
 
 static bool try_get_int32(const char *arg, int32_t *number)
