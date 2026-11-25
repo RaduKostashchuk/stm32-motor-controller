@@ -5,7 +5,8 @@
 #include "app.h"
 
 #define POS_CONTROL_MAX_RPM 50
-#define POS_KP (float)1
+#define POS_KP (float)0.5f
+#define POS_K_ACCEL (float)0.5f
 
 void pos_controller_init(int32_t current_pos);
 void pos_controller_set_target_pos(int32_t pos);

@@ -16,18 +16,28 @@
 #define MAX_RPM 95
 #define MIN_RPM -95
 #define READER_CMD_TOO_LONG "READER ERROR: COMMAND TOO LONG\n"
+#define READER_CMD_TOO_LONG_LEN (sizeof(READER_CMD_TOO_LONG) - 1)
 #define READER_RING_OVERFLOW "READER ERROR: COMMAND RING OVERFLOW\n"
+#define READER_RING_OVERFLOW_LEN (sizeof(READER_RING_OVERFLOW) - 1)
 #define SUCCESS "OK\n"
+#define SUCCESS_LEN (sizeof(SUCCESS) - 1)
 #define INVALID_PWM "ERROR USAGE PWM <motor_number> <pwm>\n"
+#define INVALID_PWM_LEN (sizeof(INVALID_PWM) - 1)
 #define INVALID_VEL "ERROR USAGE VEL <motor_number> <velocity_rpm>\n"
+#define INVALID_VEL_LEN (sizeof(INVALID_VEL) - 1)
 #define INVALID_POS "ERROR USAGE POS <motor_number> <position>\n"
+#define INVALID_POS_LEN (sizeof(INVALID_POS) - 1)
 #define INVALID_STOP "ERROR USAGE STOP <motor_number> OR STOP\n"
+#define INVALID_STOP_LEN (sizeof(INVALID_STOP) - 1)
 #define INVALID_STATUS "ERROR USAGE STATUS\n"
-#define INVALID_MODE "ERROR USAGE MODE <AUTO|MANUAL>\n"
+#define INVALID_STATUS_LEN (sizeof(INVALID_STATUS) - 1)
 #define UNKNOWN "ERROR UNKNOWN COMMAND\n"
+#define UNKNOWN_LEN (sizeof(UNKNOWN) - 1)
 #define STATUS_SEPARATOR " || "
 #define APP_REPLY_PREFIX "R:"
+#define APP_REPLY_PREFIX_LEN (sizeof(APP_REPLY_PREFIX) - 1)
 #define NONE "None\n"
+#define NONE_LEN (sizeof(NONE) - 1)
 #define CMD_BUF_SIZE 200
 
 typedef enum
@@ -37,18 +47,6 @@ typedef enum
 	APP_MODE_MANUAL,
 } app_mode_t;
 
-static const char reader_cmd_too_long[] = READER_CMD_TOO_LONG;
-static const char reader_ring_overflow[] = READER_RING_OVERFLOW;
-static const char success[] = SUCCESS;
-static const char unknown[] = UNKNOWN;
-static const char none[] = NONE;
-static const char invalid_pwm[] = INVALID_PWM;
-static const char invalid_vel[] = INVALID_VEL;
-static const char invalid_pos[] = INVALID_POS;
-static const char invalid_stop[] = INVALID_STOP;
-static const char invalid_status[] = INVALID_STATUS;
-static const char status_separator[] = STATUS_SEPARATOR;
-static const char app_reply_prefix[] = APP_REPLY_PREFIX;
 static app_mode_t app_mode = APP_MODE_MANUAL;
 static char cmd_buf[CMD_BUF_SIZE] = {0};
 drive_state_t state;
@@ -57,84 +55,74 @@ static uint16_t execute_pwm_cmd(command_t *command, char *reply_buf)
 {
 	bool invalidParams = command->motor_number != 1 || command->pwm > MAX_PWM || command->pwm < MIN_PWM;
 
-	uint16_t size = 0;
 	if (invalidParams)
 	{
-		size = sizeof(invalid_pwm) - 1;
-		memcpy(reply_buf, invalid_pwm, size);
-		return size;
+		memcpy(reply_buf, INVALID_PWM, INVALID_PWM_LEN);
+		return INVALID_PWM_LEN;
 	}
 
 	app_mode = APP_MODE_MANUAL;
 	state.cont_vel_pwm = (int16_t)command->pwm;
 	motor_set_pwm((int16_t)command->pwm);
 
-	size = sizeof(success) - 1;
-	memcpy(reply_buf, success, size);
-	return size;
+	memcpy(reply_buf, SUCCESS, SUCCESS_LEN);
+	return SUCCESS_LEN;
 }
 
 static uint16_t execute_vel_cmd(command_t *command, char *reply_buf)
 {
 	bool invalidParams = command->motor_number != 1 || command->velocity > MAX_RPM || command->velocity < MIN_RPM;
 
-	uint16_t size = 0;
 	if (invalidParams)
 	{
-		size = sizeof(invalid_vel) - 1;
-		memcpy(reply_buf, invalid_vel, size);
-		return size;
+		memcpy(reply_buf, INVALID_VEL, INVALID_VEL_LEN);
+		return INVALID_VEL_LEN;
 	}
 
 	app_mode = APP_MODE_VELOCITY;
 	state.target_rpm = (float)(command->velocity);
 	vel_controller_set_target_rpm(state.target_rpm);
 
-	size = sizeof(success) - 1;
-	memcpy(reply_buf, success, size);
-	return size;
+	memcpy(reply_buf, SUCCESS, SUCCESS_LEN);
+	return SUCCESS_LEN;
 }
 
 static uint16_t execute_pos_cmd(command_t *command, char *reply_buf)
 {
 	bool invalidParams = command->motor_number != 1;
 
-	uint16_t size = 0;
 	if (invalidParams)
 	{
-		size = sizeof(invalid_pos) - 1;
-		memcpy(reply_buf, invalid_pos, size);
-		return size;
+		memcpy(reply_buf, INVALID_POS, INVALID_POS_LEN);
+		return INVALID_POS_LEN;
 	}
 
 	app_mode = APP_MODE_POSITION;
 	state.app_target_pos = command->position;
+	pos_controller_init(encoder_get_position());
 	pos_controller_set_target_pos(state.app_target_pos);
 
-	size = sizeof(success) - 1;
-	memcpy(reply_buf, success, size);
-	return size;
+	memcpy(reply_buf, SUCCESS, SUCCESS_LEN);
+	return SUCCESS_LEN;
 }
 
 static uint16_t execute_stop_cmd(command_t *command, char *reply_buf)
 {
-  if (command->has_motor_number && command->motor_number != 1)
-  {
-	  uint16_t size = sizeof(invalid_stop) - 1;
-	  memcpy(reply_buf, invalid_stop, size);
-	  return size;
-  }
+	if (command->motor_number != 1 && command->motor_number != 0) // 0 means all motors
+	{
+		memcpy(reply_buf, INVALID_STOP, INVALID_STOP_LEN);
+		return INVALID_STOP_LEN;
+	}
 
-  app_mode = APP_MODE_MANUAL;
-  motor_set_pwm(0);
-  vel_controller_reset();
-  vel_controller_fill_drive_state(&state);
-  state.cont_vel_pwm = 0;
-  state.target_rpm = 0;
+	app_mode = APP_MODE_MANUAL;
+	motor_set_pwm(0);
+	vel_controller_reset();
+	vel_controller_fill_drive_state(&state);
+	state.cont_vel_pwm = 0;
+	state.target_rpm = 0;
 
-  uint16_t size = sizeof(success) - 1;
-  memcpy(reply_buf, success, size);
-  return size;
+	memcpy(reply_buf, SUCCESS, SUCCESS_LEN);
+	return SUCCESS_LEN;
 }
 
 static uint16_t app_get_full_status(char *reply_buf)
@@ -157,7 +145,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 	pos += out_len;
 
-	if (!try_copy_str(reply_buf + pos, CMD_BUF_SIZE - pos, status_separator, &out_len))
+	if (!try_copy_str(reply_buf + pos, CMD_BUF_SIZE - pos, STATUS_SEPARATOR, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -200,7 +188,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 		pos += out_len;
 	}
 
-	if (!try_copy_str(reply_buf + pos, CMD_BUF_SIZE - pos, status_separator, &out_len))
+	if (!try_copy_str(reply_buf + pos, CMD_BUF_SIZE - pos, STATUS_SEPARATOR, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -215,7 +203,7 @@ static uint16_t app_get_full_status(char *reply_buf)
 
 	pos += out_len;
 
-	if (!try_copy_str(reply_buf + pos, CMD_BUF_SIZE - pos, status_separator, &out_len))
+	if (!try_copy_str(reply_buf + pos, CMD_BUF_SIZE - pos, STATUS_SEPARATOR, &out_len))
 		return 0;
 
 	pos += out_len;
@@ -243,55 +231,60 @@ static uint16_t app_execute_command(command_t *command, char *reply_buf)
 	uint16_t size = 0;
 	switch (command->type)
 	{
-	  case COMMAND_STATUS:
-		return app_get_full_status(reply_buf);
+		case COMMAND_STATUS:
+			size = app_get_full_status(reply_buf);
+			break;
 
-	  case COMMAND_PWM:
-		return execute_pwm_cmd(command, reply_buf);
+		case COMMAND_PWM:
+			size = execute_pwm_cmd(command, reply_buf);
+			break;
 
-	  case COMMAND_INVALID_PWM:
-		size = sizeof(invalid_pwm) - 1;
-		memcpy(reply_buf, invalid_pwm, size);
-		return size;
+		case COMMAND_INVALID_PWM:
+			memcpy(reply_buf, INVALID_PWM, INVALID_PWM_LEN);
+			size = INVALID_PWM_LEN;
+			break;
 
-	  case COMMAND_VEL:
-		return execute_vel_cmd(command, reply_buf);
+		case COMMAND_VEL:
+			size = execute_vel_cmd(command, reply_buf);
+			break;
 
-	  case COMMAND_INVALID_VEL:
-		size = sizeof(invalid_vel) - 1;
-		memcpy(reply_buf, invalid_vel, size);
-		return size;
+		case COMMAND_INVALID_VEL:
+			memcpy(reply_buf, INVALID_VEL, INVALID_VEL_LEN);
+			size = INVALID_VEL_LEN;
+			break;
 
-	  case COMMAND_POS:
-		return execute_pos_cmd(command, reply_buf);
+		case COMMAND_POS:
+			size = execute_pos_cmd(command, reply_buf);
+			break;
 
-	  case COMMAND_INVALID_POS:
-		size = sizeof(invalid_pos) - 1;
-		memcpy(reply_buf, invalid_pos, size);
-		return size;
+		case COMMAND_INVALID_POS:
+			memcpy(reply_buf, INVALID_POS, INVALID_POS_LEN);
+			size = INVALID_POS_LEN;
+			break;
 
-	  case COMMAND_STOP:
-		return execute_stop_cmd(command, reply_buf);
+		case COMMAND_STOP:
+			size = execute_stop_cmd(command, reply_buf);
+			break;
 
-	  case COMMAND_INVALID_STOP:
-		size = sizeof(invalid_stop) - 1;
-		memcpy(reply_buf, invalid_stop, size);
-		return size;
+		case COMMAND_INVALID_STOP:
+			memcpy(reply_buf, INVALID_STOP, INVALID_STOP_LEN);
+			size = INVALID_STOP_LEN;
+			break;
 
-	  case COMMAND_INVALID_STATUS:
-		 size = sizeof(invalid_status) - 1;
-		memcpy(reply_buf, invalid_status, size);
-		return size;
+		case COMMAND_INVALID_STATUS:
+			memcpy(reply_buf, INVALID_STATUS, INVALID_STATUS_LEN);
+			size = INVALID_STATUS_LEN;
+			break;
 
-	  case COMMAND_UNKNOWN:
-		size = sizeof(unknown) - 1;
-		memcpy(reply_buf, unknown, size);
-		return size;
+		case COMMAND_UNKNOWN:
+			memcpy(reply_buf, UNKNOWN, UNKNOWN_LEN);
+			size = UNKNOWN_LEN;
+			break;
 
-	  case COMMAND_NONE:
-		size = sizeof(none) - 1;
-		memcpy(reply_buf, none, size);
-		return size;
+		case COMMAND_NONE:
+			memcpy(reply_buf, NONE, NONE_LEN);
+			size = NONE_LEN;
+			break;
 	}
 	return size;
 }
@@ -301,7 +294,8 @@ uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *
 	_Static_assert(APP_REPLY_BUF_SIZE >= 400, "APP_REPLY_BUF_SIZE too small for worst case");
 	_Static_assert(CMD_BUF_SIZE >= 128, "CMD_BUF_SIZE too small for STATUS reply");
 
-	if (reply_buf == NULL || read_buf == NULL) return 0;
+	if (reply_buf == NULL || read_buf == NULL)
+		return 0;
 
 	uint16_t entire_reply_len = 2;
 	memcpy(reply_buf, "R:", entire_reply_len); // Reply prefix
@@ -309,15 +303,13 @@ uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *
 	reader_status status = reader_read(read_buf, received_len);
 	if (status == READER_ERR_CMD_TOO_LONG)
 	{
-		uint16_t reply_len = sizeof(reader_cmd_too_long) - 1;
-		memcpy(reply_buf + entire_reply_len, reader_cmd_too_long, reply_len);
-		entire_reply_len += reply_len;
+		memcpy(reply_buf + entire_reply_len, READER_CMD_TOO_LONG, READER_CMD_TOO_LONG_LEN);
+		entire_reply_len += READER_CMD_TOO_LONG_LEN;
 	}
 	else if (status == READER_ERR_RING_OVERFLOW)
 	{
-		uint16_t reply_len = sizeof(reader_ring_overflow) - 1;
-		memcpy(reply_buf + entire_reply_len, reader_ring_overflow, reply_len);
-		entire_reply_len += reply_len;
+		memcpy(reply_buf + entire_reply_len, READER_RING_OVERFLOW, READER_RING_OVERFLOW_LEN);
+		entire_reply_len += READER_RING_OVERFLOW_LEN;
 	}
 	else
 	{
@@ -330,9 +322,8 @@ uint16_t app_process_command(const char *read_buf, uint16_t received_len, char *
 			if (entire_reply_len + cmd_reply_len > APP_REPLY_BUF_SIZE) // discard oversized reply
 				break;
 
-			uint8_t app_reply_prefix_len = sizeof(app_reply_prefix) - 1;
-			memcpy(reply_buf + entire_reply_len, app_reply_prefix, app_reply_prefix_len);
-			entire_reply_len += app_reply_prefix_len;
+			memcpy(reply_buf + entire_reply_len, APP_REPLY_PREFIX, APP_REPLY_PREFIX_LEN);
+			entire_reply_len += APP_REPLY_PREFIX_LEN;
 			memcpy(reply_buf + entire_reply_len, cmd_buf, cmd_reply_len);
 			entire_reply_len += cmd_reply_len;
 		}

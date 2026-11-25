@@ -11,7 +11,7 @@ extern "C" {
 #include "battery.h"
 
 #define RX_BUF_SIZE 64 // Must be several MAX_CMD_LENGTH
-#define MAX_CMD_LENGTH 13 // Extra 1 element for '\0' char
+#define MAX_CMD_LENGTH 18 // "POS 1 -2147483648" plus '\0' char
 #define TELEMETRY_BUF_SIZE 160
 #define APP_REPLY_BUF_SIZE 400
 #define UART_MAX_SILENCE_DURATION_MS 60000
@@ -38,7 +38,6 @@ typedef enum
 typedef struct
 {
 	command_type_t type;
-	bool has_motor_number;
 	int32_t motor_number;
 	int32_t pwm;
 	int32_t velocity;
