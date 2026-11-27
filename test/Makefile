@@ -23,10 +23,11 @@ UNITY_HDR = $(UNITY_DIR)/src/unity.h \
             $(UNITY_DIR)/extras/memory/src/unity_memory.h
 
 # Список тестовых файлов
-TEST_SRCS = main_test.c test_reader.c test_parser.c test_format.c test_estimator.c test_controller.c
+TEST_SRCS = main_test.c test_reader.c test_parser.c test_format.c test_estimator.c test_vel_controller.c test_pos_controller.c
 
 # Исходники тестируемых модулей (только не зависящие от HAL)
-APP_SRCS = ../Core/Src/reader.c ../Core/Src/parser.c ../Core/Src/format.c ../Core/Src/estimator.c ../Core/Src/vel_controller.c
+APP_SRCS = ../Core/Src/reader.c ../Core/Src/parser.c ../Core/Src/format.c ../Core/Src/estimator.c ../Core/Src/vel_controller.c \
+	../Core/Src/pos_controller.c
 
 MOCK_SRCS = mocks/critical_mock.c
 

@@ -1,31 +1,18 @@
 import serial
 import time
-<<<<<<< HEAD
 import os
-=======
->>>>>>> t_method
 from pathlib import Path
 
 # ==== НАСТРОЙКИ ====
 PORT = 'COM7'
 BAUD = 115200
 DURATION = 15          # сколько секунд писать
-<<<<<<< HEAD
 TARGET_RPM = 50
-=======
-TARGET_RPM = 80
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "out"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-OUTPUT_FILE = OUTPUT_DIR / "telemetry.csv"
->>>>>>> t_method
-
-BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = BASE_DIR / "out"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-OUTPUT_FILE = OUTPUT_DIR / "telemetry.csv"
+OUTPUT_FILE = OUTPUT_DIR / "vel_step_resp_telemetry.csv"
 
 # ==== ОТКРЫТИЕ ПОРТА ====
 ser = serial.Serial(PORT, BAUD, timeout=1)
@@ -34,10 +21,8 @@ print("Жду 2 секунды пока Arduino стабилизируется")
 time.sleep(2)
 
 # ==== СТАРТ МОТОРА ====
-print("Отправляю MODE AUTO")
-ser.write(b'MODE AUTO\n')
-print(f"Отправляю MOTOR 1 {TARGET_RPM}")
-ser.write(f'MOTOR 1 {TARGET_RPM}\n'.encode())
+print(f"Отправляю VEL 1 {TARGET_RPM}")
+ser.write(f'VEL 1 {TARGET_RPM}\n'.encode())
 
 # ==== СБОР ДАННЫХ ====
 print(f"Собираю телеметрию {DURATION} секунд")

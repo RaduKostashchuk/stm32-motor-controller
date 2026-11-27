@@ -115,10 +115,7 @@ void vel_controller_calc_control_value()
 {
 	if (target_rpm == 0)
 	{
-		i_sum = 0;
-		i = 0;
-		control_value = 0;
-		previous_rpm = current_rpm;
+		vel_controller_reset();
 		return;
 	}
 
@@ -130,6 +127,7 @@ void vel_controller_calc_control_value()
 	calcI();
 
 	float output = uff + p + i + d;
+
 	// control value clamping
 	if (output > MAX_CV)
 	  output = MAX_CV;
@@ -141,6 +139,12 @@ void vel_controller_calc_control_value()
 		control_value = 0;
 		return;
 	}
+
+	// control value floor
+	if ((target_rpm > 0 && target_rpm <= MIN_MOTOR_RPM) || (output > 0 && output < MIN_MOTOR_PWM))
+		output = MIN_MOTOR_PWM;
+	else if ((target_rpm < 0 && target_rpm >= -MIN_MOTOR_RPM) || (output < 0 && output > -MIN_MOTOR_PWM))
+		output = -MIN_MOTOR_PWM;
 
 	control_value = (int16_t)output;
 }

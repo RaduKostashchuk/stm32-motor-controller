@@ -16,6 +16,8 @@ Stack:
 - STM32CubeIDE
 - HAL
 
+Commands: PWM <motor> <val> | VEL <motor> <rpm> | POS <motor> <ticks> | STOP | STATUS
+
 ---
 
 ## 2. Architecture
@@ -28,7 +30,9 @@ Stack:
 ├─────────────────────────────────────┤
 │  Serial Commands (Reader + Parser)  │  ← command from PC: PWM, VEL, POS, STOP, STATUS
 ├─────────────────────────────────────┤
-│  Controller (FF + PID)              │  ← velocity control
+│  Position Controller (P)            │  ← position control (cascade outer loop)
+├─────────────────────────────────────┤ 
+│  Velocity Controller (FF + PID)     │  ← velocity control (cascade inner loop)
 ├─────────────────────────────────────┤
 │  Estimator (RPM from encoder)       │  ← velocity estimation
 ├─────────────────────────────────────┤
@@ -87,7 +91,8 @@ Controller runs at 100 Hz independent of estimator rate.
 - `Encoder` — tick counter by reading hardware timer register.
 - `Motor` — PWM and direction control.
 - `Estimator` — velocity and position calculation.
-- `Controller` — Feed forward + PI.
+- `Velocity controller` — Feed forward + PI.
+- `Position controller` - P-only cascade for outer loop (position -> target RPM)
 - `Application` — orchestration.
 
 All modules are independent from hardware.
@@ -98,7 +103,7 @@ T-method covered by 10 regression tests: math, glitch rejection, sliding window 
 
 ## 5. Testing
 
-Unit tests for host execution (Unity): **122**.
+Unit tests for host execution (Unity): **132**.
 
 | Module | Tests | Coverage |
 |---|---|---|
@@ -106,13 +111,14 @@ Unit tests for host execution (Unity): **122**.
 | parser | 34 | Valid/invalid commands, long tokens, edge whitespace |
 | reader | 11 | FSM, ring buffer, multi-command, discard, CR/LF |
 | estimator m-method + t-method | 20 | Bidirectional, glitch rejection, boundary, recovery |
-| controller | 11 | P/I/D, anti-windup (both directions), deadband, saturation |
+| velocity controller | 13 | P/I/D, anti-windup (both directions), deadband, saturation |
+| position controller | 8 | P, deadband |
 
 Run: `cd test && make test`
 
 ---
 
-## 6. Control design
+## 6. Velocity control design
 
 **Feed-forward:**
 ```
@@ -131,39 +137,80 @@ PID coefficients are selected experimentally: FF is adjusted to be slightly unde
 
 **Discharge:** `2` → faster integral discharging when `|error| < 0` and `|error| > 0.3`.
 
+**Output floor:** `|output| < 30 PWM → clamp to +- 30`. Experimental dead zone for static friction: below 30 PWM motor stalls or oscillates. 30 PWM ≈ 9 RPM at 12V. Applied to both velocity and position controllers.
+
 ---
 
-## 7. Telemetry and analysis
+## 7. Position control design
+
+Cascade regulator was chosen for position control: position control layer manages velocity control layer.
+
+**P-controller:**
+- `kp = 0.1` — RPM per tick of position error. Selected experimentally, by comparing undershoot, settle time and oscillations near target.
+
+P-only chosen for outer position loop: inner velocity PI already handles steady-state error (velocity loop integrates position error implicitly). Adding I to position would create double-integrator — unstable.
+
+**Deadband:** `|error| <= 5` → set output to 0 rpm when position within deadband range. 5 ticks is 1 mm at 67mm diameter wheel.
+
+![Position control diagram](docs/pos_control_diag.png)
+
+---
+
+## 8. Telemetry and analysis
 
 **Firmware** sends CSV-strings:
 ```
-T:<millis>,desired,current,error,p,i,d,uff,pwm,vbat
+T:<millis>,target_rpm,current_rpm,error_rpm,p,i,d,uff,target_pos,current_pos,error_pos,pwm,vbat
 ```
 
-**Python-script** (`tools/telemetry_reader.py`):
+**Python-script** (`tools/step_resp_vel.py`):
 - Opens Serial at 115200.
 - Waits 2 seconds for stabilization.
 - Sends `VEL 1 <rpm>`.
 - Writes telemetry to CSV file.
 - Sends — `STOP`.
 
-**Graphs** (`tools/plot_telemetry.py`):
-- Speed: desired / current.
+**Graphs** (`tools/plot_step_response.py`):
+- Speed: target / current.
 - Metrics: p, i, d, uff, pwm.
+
+**Python-script** (`tools/pos_control.py`):
+- Opens Serial at 115200.
+- Waits 2 seconds for stabilization.
+- Sends `POS 1 <position>`.
+- Writes telemetry to CSV file.
+- Sends — `STOP`.
+
+**Graphs** (`tools/plot_pos_control.py`):
+- Position: target / current.
+- Metrics: current rpm, target rpm, pwm.
 
 ---
 
-## 8. Results
+## 9. Results
 
 ### Step response at 20, 50, 80 RPM
 
 Deferred until PSU arrives.
 
+### Position control
+
+| Metric | Forward (POS 4000) | Backward (POS 0) |
+|---|---|---|
+| Target | 4000 ticks | 0 ticks |
+| Final position | 4004 | -4 |
+| Overshoot | 4 tick (1.4°) | -4 ticks (1.4°) |
+| Settle (±5 ticks) | 6 s | 6 s |
+
+![Position control forward test](docs/pos_control_fwd.png)
+
+![Position control backward test](docs/pos_control_back.png)
+
 ---
 
-## 9. Limitations
+## 10. Limitations
 
-### Cogging and encoder harmonics
+### Encoder harmonics
 
 Two harmonics present in instantaneous RPM:
 - **Period 2 edges** — A/B phase mismatch (duty ≠ 50/50).
@@ -190,4 +237,8 @@ eliminated without D (not viable, see above) or feedforward of external load
 FF calibrated at 12.0V. At 11.9V battery — settle 5× slower (1300 ms vs 250 ms) 
 because I-term compensates the voltage deficit. Voltage-compensated FF planned: 
 `uff × (12.0 / V_measured)`. ADC voltage sensing already implemented (vbat in telemetry).
+
+### Position control overshoot from floor
+
+Position controller overshoots target by 4–5 ticks (~1 mm) at wheel d=67 mm. Cause: velocity output floor 30 PWM (9 RPM) — at position error < 90 ticks, floor dominates over P-proportional, motor coasts past target. Deadband 5 ticks absorbs overshoot.
 

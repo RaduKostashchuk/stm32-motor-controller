@@ -7,6 +7,7 @@
 #define VEL_KP 0.25f
 #define VEL_KI 16.0f
 #define VEL_KD 0.0f
+#define MIN_MOTOR_PWM 30
 
 void vel_controller_init(void);
 void vel_controller_set_target_rpm(float target);

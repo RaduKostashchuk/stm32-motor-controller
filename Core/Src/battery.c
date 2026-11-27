@@ -3,7 +3,7 @@
 #define R1 33000u
 #define R2 10000u
 #define VOLTAGE_DIVIDER_CF (float)(R1 + R2) / (float)R2
-#define LPF_ALPHA 0.1f
+#define LPF_ALPHA 0.2f
 
 static float filtered_voltage = 0.0f;
 

@@ -99,7 +99,7 @@ static uint16_t execute_pos_cmd(command_t *command, char *reply_buf)
 
 	app_mode = APP_MODE_POSITION;
 	state.app_target_pos = command->position;
-	pos_controller_init(encoder_get_position());
+	pos_controller_reset(encoder_get_position());
 	pos_controller_set_target_pos(state.app_target_pos);
 
 	memcpy(reply_buf, SUCCESS, SUCCESS_LEN);
@@ -116,6 +116,8 @@ static uint16_t execute_stop_cmd(command_t *command, char *reply_buf)
 
 	app_mode = APP_MODE_MANUAL;
 	motor_set_pwm(0);
+	pos_controller_reset(encoder_get_position());
+	pos_controller_fill_drive_state(&state);
 	vel_controller_reset();
 	vel_controller_fill_drive_state(&state);
 	state.cont_vel_pwm = 0;
@@ -339,7 +341,6 @@ void app_init(void)
 	motor_init();
 	estimator_init(current_pos);
 	vel_controller_init();
-	pos_controller_init(current_pos);
 }
 
 void app_do_control_action(void) // ISR context

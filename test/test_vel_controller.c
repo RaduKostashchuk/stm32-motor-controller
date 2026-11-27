@@ -3,16 +3,16 @@
 #include "vel_controller.h"
 #include <stdint.h>
 
-TEST_GROUP(Controller);
+TEST_GROUP(VelController);
 
-TEST_SETUP(Controller)
+TEST_SETUP(VelController)
 {
 	vel_controller_init();
 }
 
-TEST_TEAR_DOWN(Controller) {}
+TEST_TEAR_DOWN(VelController) {}
 
-TEST(Controller, test_target_zero)
+TEST(VelController, test_target_zero)
 {
 	vel_controller_set_target_rpm(0.0f);
 	vel_controller_calc_control_value();
@@ -21,7 +21,7 @@ TEST(Controller, test_target_zero)
 	TEST_ASSERT_EQUAL_INT16(0, state.cont_vel_pwm);
 }
 
-TEST(Controller, test_target_zero_reset_values)
+TEST(VelController, test_target_zero_reset_values)
 {
 	vel_controller_set_target_rpm(20.0f);
 	vel_controller_set_current_rpm(5.0f);
@@ -38,7 +38,7 @@ TEST(Controller, test_target_zero_reset_values)
 	TEST_ASSERT_EQUAL_FLOAT(state.cont_vel_i, 0.0f);
 }
 
-TEST(Controller, test_proportional_positive)
+TEST(VelController, test_proportional_positive)
 {
 	vel_controller_set_target_rpm(10.0f);
 	vel_controller_set_current_rpm(0.0f);
@@ -50,7 +50,7 @@ TEST(Controller, test_proportional_positive)
 	TEST_ASSERT_EQUAL_FLOAT(expected, state.cont_vel_p);
 }
 
-TEST(Controller, test_proportional_negative)
+TEST(VelController, test_proportional_negative)
 {
 	vel_controller_set_target_rpm(-10.0f);
 	vel_controller_set_current_rpm(0.0f);
@@ -62,7 +62,7 @@ TEST(Controller, test_proportional_negative)
 	TEST_ASSERT_EQUAL_FLOAT(expected, state.cont_vel_p);
 }
 
-TEST(Controller, test_saturation_positive)
+TEST(VelController, test_saturation_positive)
 {
 	vel_controller_set_target_rpm(95.0f);
 	vel_controller_calc_control_value();
@@ -71,7 +71,7 @@ TEST(Controller, test_saturation_positive)
 	TEST_ASSERT_EQUAL_INT16(255, state.cont_vel_pwm);
 }
 
-TEST(Controller, test_saturation_negative)
+TEST(VelController, test_saturation_negative)
 {
 	vel_controller_set_target_rpm(-95.0f);
 	vel_controller_calc_control_value();
@@ -80,7 +80,7 @@ TEST(Controller, test_saturation_negative)
 	TEST_ASSERT_EQUAL_INT16(-255, state.cont_vel_pwm);
 }
 
-TEST(Controller, test_i_anti_windup_after_accumulation)
+TEST(VelController, test_i_anti_windup_after_accumulation)
 {
 	vel_controller_set_target_rpm(20.0f);
 	vel_controller_set_current_rpm(5.0f);
@@ -107,7 +107,7 @@ TEST(Controller, test_i_anti_windup_after_accumulation)
 	}
 }
 
-TEST(Controller, test_i_deadband)
+TEST(VelController, test_i_deadband)
 {
 	vel_controller_set_target_rpm(80.0f);
 	vel_controller_set_current_rpm(79.0f);
@@ -128,7 +128,7 @@ TEST(Controller, test_i_deadband)
 	}
 }
 
-TEST(Controller, test_steady_state_with_accumulated_i)
+TEST(VelController, test_steady_state_with_accumulated_i)
 {
 	vel_controller_set_target_rpm(80.0f);
 	vel_controller_set_current_rpm(50.0f);
@@ -146,7 +146,7 @@ TEST(Controller, test_steady_state_with_accumulated_i)
 	TEST_ASSERT_FLOAT_WITHIN(0.5f, (int)(state.cont_vel_uff + state.cont_vel_i), state.cont_vel_pwm);
 }
 
-TEST(Controller, test_i_normal_accumulation)
+TEST(VelController, test_i_normal_accumulation)
 {
 	vel_controller_set_target_rpm(80.0f);
 	vel_controller_set_current_rpm(70.0f);
@@ -164,7 +164,7 @@ TEST(Controller, test_i_normal_accumulation)
 	TEST_ASSERT_EQUAL_FLOAT(i_expected, state.cont_vel_i);
 }
 
-TEST(Controller, test_i_normal_negative_accumulation)
+TEST(VelController, test_i_normal_negative_accumulation)
 {
 	vel_controller_set_target_rpm(-80.0f);
 	vel_controller_set_current_rpm(-70.0f);
@@ -182,17 +182,41 @@ TEST(Controller, test_i_normal_negative_accumulation)
 	TEST_ASSERT_EQUAL_FLOAT(i_expected, state.cont_vel_i);
 }
 
-TEST_GROUP_RUNNER(Controller)
+TEST(VelController, test_floor_positive)
 {
-	RUN_TEST_CASE(Controller, test_target_zero);
-	RUN_TEST_CASE(Controller, test_target_zero_reset_values);
-	RUN_TEST_CASE(Controller, test_proportional_positive);
-	RUN_TEST_CASE(Controller, test_proportional_negative);
-	RUN_TEST_CASE(Controller, test_saturation_positive);
-	RUN_TEST_CASE(Controller, test_saturation_negative);
-	RUN_TEST_CASE(Controller, test_i_anti_windup_after_accumulation);
-	RUN_TEST_CASE(Controller, test_i_deadband);
-	RUN_TEST_CASE(Controller, test_steady_state_with_accumulated_i);
-	RUN_TEST_CASE(Controller, test_i_normal_accumulation);
-	RUN_TEST_CASE(Controller, test_i_normal_negative_accumulation);
+	vel_controller_set_target_rpm(MIN_MOTOR_RPM);
+	vel_controller_calc_control_value();
+
+	drive_state_t state;
+	vel_controller_fill_drive_state(&state);
+
+	TEST_ASSERT_EQUAL_FLOAT(MIN_MOTOR_PWM, state.cont_vel_pwm);
+}
+
+TEST(VelController, test_floor_negative)
+{
+	vel_controller_set_target_rpm(-MIN_MOTOR_RPM);
+	vel_controller_calc_control_value();
+
+	drive_state_t state;
+	vel_controller_fill_drive_state(&state);
+
+	TEST_ASSERT_EQUAL_FLOAT(-MIN_MOTOR_PWM, state.cont_vel_pwm);
+}
+
+TEST_GROUP_RUNNER(VelController)
+{
+	RUN_TEST_CASE(VelController, test_target_zero);
+	RUN_TEST_CASE(VelController, test_target_zero_reset_values);
+	RUN_TEST_CASE(VelController, test_proportional_positive);
+	RUN_TEST_CASE(VelController, test_proportional_negative);
+	RUN_TEST_CASE(VelController, test_saturation_positive);
+	RUN_TEST_CASE(VelController, test_saturation_negative);
+	RUN_TEST_CASE(VelController, test_i_anti_windup_after_accumulation);
+	RUN_TEST_CASE(VelController, test_i_deadband);
+	RUN_TEST_CASE(VelController, test_steady_state_with_accumulated_i);
+	RUN_TEST_CASE(VelController, test_i_normal_accumulation);
+	RUN_TEST_CASE(VelController, test_i_normal_negative_accumulation);
+	RUN_TEST_CASE(VelController, test_floor_positive);
+	RUN_TEST_CASE(VelController, test_floor_negative);
 }

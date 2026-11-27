@@ -15,9 +15,10 @@ extern "C" {
 #define TELEMETRY_BUF_SIZE 160
 #define APP_REPLY_BUF_SIZE 400
 #define UART_MAX_SILENCE_DURATION_MS 60000
-#define TELEMETRY_INTERVAL_MS 500
+#define TELEMETRY_INTERVAL_MS 50
 #define BATTERY_CHECK_INTERVAL_MS 500
 #define DELTA_TIME_SEC 0.01f // controller and estimator freq
+#define MIN_MOTOR_RPM 9.0f
 
 typedef enum
 {
